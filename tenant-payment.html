@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pay Rent | EstatePro</title>
+    <meta name="description" content="Pay rent using Safaricom M-Pesa STK Push and get a verified payment record.">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="payment-body">
+
+<header class="payment-header">
+    <div class="container payment-header-inner">
+        <a href="index.html" class="logo">
+            Estate<span>Pro</span>
+        </a>
+
+        <nav class="payment-header-actions" aria-label="Payment page navigation">
+            <a href="index.html">Back to website</a>
+            <a href="admin-login.html">Landlord dashboard</a>
+        </nav>
+    </div>
+</header>
+
+<main class="payment-main">
+    <div class="container">
+
+        <section class="payment-intro">
+            <p class="subtitle">TENANT PAYMENTS</p>
+            <h1>Submit your rent payment.</h1>
+            <p>
+                Request a Safaricom M-Pesa STK Push and keep the rent ledger updated
+                only after Safaricom confirms the payment.
+            </p>
+        </section>
+
+        <section id="payment-form-shell" class="payment-form-shell">
+            <div class="payment-form-card">
+                <div class="payment-form-heading">
+                    <div>
+                        <p class="subtitle">PAYMENT DETAILS</p>
+                        <h2>Make a rent payment</h2>
+                    </div>
+                    <span class="payment-step-badge">1 of 1</span>
+                </div>
+
+                <p class="payment-form-intro">
+                    Enter the M-Pesa number that should receive the payment prompt.
+                    The amount is sent to the configured Safaricom business shortcode.
+                </p>
+
+                <p id="payment-error" class="payment-message payment-error" role="alert" hidden></p>
+                <p id="payment-status" class="payment-message payment-status" role="status" aria-live="polite" hidden></p>
+
+                <form id="rent-payment-form" class="rent-payment-form" novalidate>
+                    <div class="payment-field-grid">
+                        <div class="payment-field">
+                            <label for="tenant-name">Full name <span aria-hidden="true">*</span></label>
+                            <input id="tenant-name" name="tenantName" type="text" autocomplete="name" placeholder="e.g. Jane Wanjiku" required>
+                        </div>
+
+                        <div class="payment-field">
+                            <label for="tenant-email">Email address <span aria-hidden="true">*</span></label>
+                            <input id="tenant-email" name="tenantEmail" type="email" autocomplete="email" placeholder="you@example.com" required>
+                        </div>
+
+                        <div class="payment-field">
+                            <label for="tenant-phone">Contact phone number</label>
+                            <input id="tenant-phone" name="tenantPhone" type="tel" autocomplete="tel" placeholder="+254 700 000 000">
+                        </div>
+
+                        <div class="payment-field">
+                            <label for="payment-phone">M-Pesa phone number <span aria-hidden="true">*</span></label>
+                            <input id="payment-phone" name="phoneNumber" type="tel" autocomplete="tel" inputmode="tel" pattern="(?:0[17][0-9]{8}|\+?254[17][0-9]{8})" placeholder="0712345678" required>
+                            <small>Enter the Safaricom number that should receive the STK Push.</small>
+                        </div>
+
+                        <div class="payment-field">
+                            <label for="payment-property">Home or house <span aria-hidden="true">*</span></label>
+                            <select id="payment-property" name="propertyId" required disabled>
+                                <option value="">Loading properties…</option>
+                            </select>
+                        </div>
+
+                        <div class="payment-field">
+                            <label for="payment-unit">Unit or house number <span aria-hidden="true">*</span></label>
+                            <input id="payment-unit" name="unit" type="text" placeholder="e.g. A03" required>
+                        </div>
+
+                        <div class="payment-field">
+                            <label for="payment-period">Rent period <span aria-hidden="true">*</span></label>
+                            <input id="payment-period" name="periodKey" type="month" required>
+                        </div>
+
+                        <div class="payment-field">
+                            <label for="payment-amount">Amount sent (KSh) <span aria-hidden="true">*</span></label>
+                            <input id="payment-amount" name="amount" type="number" min="1" step="1" inputmode="numeric" placeholder="0" required>
+                            <small>You can make a partial payment up to the monthly rent.</small>
+                        </div>
+
+                        <div class="payment-field">
+                            <label for="payment-method">Payment method <span aria-hidden="true">*</span></label>
+                            <select id="payment-method" name="method" required>
+                                <option value="M-Pesa STK Push">M-Pesa STK Push</option>
+                            </select>
+                        </div>
+
+                    </div>
+
+                    <div class="payment-form-footer">
+                        <p>
+                            <span aria-hidden="true">🔒</span>
+                            Approve the Safaricom STK prompt with your M-Pesa PIN. Rent is recorded only after the provider confirms success.
+                        </p>
+                        <button id="submit-payment" type="submit" class="btn primary-btn">
+                            Send STK Push <span aria-hidden="true">→</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <aside class="payment-info-card">
+                <span class="payment-info-icon" aria-hidden="true">✓</span>
+                <h2>Pay with Safaricom M-Pesa</h2>
+                <ol>
+                    <li>Enter a Safaricom number and select the rent amount.</li>
+                    <li>Tap <strong>Send STK Push</strong> and approve the prompt on your phone.</li>
+                    <li>EstatePro records rent only after the Safaricom callback confirms the amount, phone, and M-Pesa receipt.</li>
+                </ol>
+                <p class="payment-info-note">
+                    A request or phone prompt is not a payment receipt. Safaricom may still handle disputes or reversals under its terms.
+                </p>
+            </aside>
+        </section>
+
+        <section id="payment-pending-shell" class="receipt-shell" aria-live="polite" hidden>
+            <div class="receipt-success-banner payment-pending-banner">
+                <span class="receipt-success-icon" aria-hidden="true">…</span>
+                <div>
+                    <strong id="pending-payment-title">STK Push sent</strong>
+                    <p id="pending-payment-message">Check your phone and enter your M-Pesa PIN. Rent is not marked paid until Safaricom confirms the transaction.</p>
+                </div>
+            </div>
+            <article class="receipt-card">
+                <header class="receipt-card-header">
+                    <div>
+                        <p class="subtitle">SAFARICOM M-PESA</p>
+                        <h2 id="pending-payment-heading">Waiting for payment confirmation</h2>
+                    </div>
+                </header>
+                <dl class="receipt-details">
+                    <div><dt>Business shortcode</dt><dd id="pending-business-number">174379</dd></div>
+                    <div><dt>STK request</dt><dd id="pending-request-id">—</dd></div>
+                    <div><dt>Amount requested</dt><dd id="pending-request-amount">—</dd></div>
+                    <div><dt>Safaricom receipt</dt><dd id="pending-receipt-number">Not received yet</dd></div>
+                    <div><dt>Status</dt><dd id="pending-payment-state">Waiting for M-Pesa approval</dd></div>
+                </dl>
+            </article>
+            <div class="receipt-actions">
+                <button id="new-payment-request" type="button" class="btn dashboard-outline-btn">Start another payment</button>
+                <a href="tenant-login.html" class="btn dashboard-outline-btn">View my payments</a>
+            </div>
+        </section>
+
+    </div>
+</main>
+
+<footer class="payment-footer">
+    <div class="container">
+        <p>&copy; <span data-year>2026</span> EstatePro. Tenant payment workspace.</p>
+    </div>
+</footer>
+
+<script src="js/tenant-payment.js"></script>
+</body>
+</html>

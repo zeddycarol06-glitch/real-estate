@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Landlord Admin Sign In | EstatePro</title>
+    <meta name="description" content="Password-protected sign in for the EstatePro landlord dashboard.">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="auth-body admin-gate-body">
+
+<main class="auth-page">
+
+    <aside class="auth-aside">
+        <a href="index.html" class="logo">
+            Estate<span>Pro</span>
+        </a>
+
+        <div class="auth-aside-content">
+            <p class="subtitle">LANDLORD WORKSPACE</p>
+
+            <h1>
+                Private access to
+                <span>your portfolio.</span>
+            </h1>
+
+            <p>
+                The landlord dashboard holds rent records, collection reports and
+                tenant registrations. Only the admin password opens it.
+            </p>
+
+            <ul class="auth-benefits" aria-label="Admin access protection">
+                <li>
+                    <span aria-hidden="true">✓</span>
+                    Password is verified on the server, never in the page
+                </li>
+                <li>
+                    <span aria-hidden="true">✓</span>
+                    Sessions end after two hours of inactivity
+                </li>
+                <li>
+                    <span aria-hidden="true">✓</span>
+                    Repeated wrong passwords lock the page temporarily
+                </li>
+            </ul>
+        </div>
+
+        <p class="auth-aside-note">
+            Tenant accounts cannot open this area.
+        </p>
+    </aside>
+
+    <section class="auth-main" aria-label="Administrator access">
+        <div class="auth-card admin-gate-card">
+
+            <a href="index.html" class="auth-back-link">
+                <span aria-hidden="true">←</span> Back to home
+            </a>
+
+            <div class="auth-card-header">
+                <p class="subtitle" id="gate-kicker">ADMIN ONLY</p>
+                <h1 id="gate-title">Sign in to the dashboard</h1>
+                <p id="gate-description">
+                    Enter the landlord admin password to continue. Your tenants
+                    do not need this password.
+                </p>
+            </div>
+
+            <p id="gate-notice"
+               class="auth-message auth-gate-notice"
+               role="status"
+               aria-live="polite"
+               hidden></p>
+
+            <form id="admin-signin-form" class="auth-form" novalidate>
+                <div class="form-field">
+                    <label for="admin-password">
+                        Admin password <span aria-hidden="true">*</span>
+                    </label>
+                    <div class="password-field">
+                        <input id="admin-password"
+                               name="password"
+                               type="password"
+                               autocomplete="current-password"
+                               placeholder="Enter the admin password"
+                               required>
+                        <button type="button"
+                                class="password-toggle"
+                                data-password-toggle="admin-password"
+                                aria-label="Show admin password">Show</button>
+                    </div>
+                    <p class="field-hint" id="signin-hint">Landlord access only.</p>
+                </div>
+
+                <p id="admin-signin-error"
+                   class="auth-message auth-error"
+                   role="alert"
+                   hidden></p>
+
+                <button id="admin-signin-submit"
+                        type="submit"
+                        class="btn primary-btn auth-submit">
+                    Unlock dashboard
+                </button>
+            </form>
+
+            <form id="admin-setup-form" class="auth-form admin-gate-form" novalidate hidden>
+                <p class="admin-gate-form-intro">
+                    No admin password is set yet. Create one now to lock the
+                    landlord dashboard before anyone opens it.
+                </p>
+
+                <div class="form-field">
+                    <label for="setup-password">
+                        New admin password <span aria-hidden="true">*</span>
+                    </label>
+                    <div class="password-field">
+                        <input id="setup-password"
+                               name="password"
+                               type="password"
+                               autocomplete="new-password"
+                               required>
+                        <button type="button"
+                                class="password-toggle"
+                                data-password-toggle="setup-password"
+                                aria-label="Show new admin password">Show</button>
+                    </div>
+                    <p class="field-hint" id="setup-hint">Use at least 10 characters with a letter and a number.</p>
+                </div>
+
+                <div class="form-field">
+                    <label for="setup-confirm-password">
+                        Confirm admin password <span aria-hidden="true">*</span>
+                    </label>
+                    <input id="setup-confirm-password"
+                           name="confirmPassword"
+                           type="password"
+                           autocomplete="new-password"
+                           required>
+                </div>
+
+                <p id="admin-setup-error"
+                   class="auth-message auth-error"
+                   role="alert"
+                   hidden></p>
+
+                <button type="submit" class="btn primary-btn auth-submit">
+                    Create password and unlock
+                </button>
+            </form>
+
+            <div id="admin-offline" class="admin-gate-panel admin-gate-offline" hidden>
+                <span class="admin-gate-panel-icon" aria-hidden="true">!</span>
+                <div>
+                    <h2 id="admin-offline-title">The EstatePro server is not answering</h2>
+                    <p id="admin-offline-text">
+                        The admin password is checked by the EstatePro server, so
+                        the gate stays closed until it is running.
+                    </p>
+                    <ol class="admin-gate-steps">
+                        <li>Open a terminal in the EstatePro project folder.</li>
+                        <li>
+                            Run <code>npm start</code>, or double-click
+                            <code>start-estatepro.bat</code>.
+                        </li>
+                        <li>
+                            Open
+                            <code id="admin-offline-url">http://localhost:3000/admin-login.html</code>
+                            in your browser. Do not open the HTML file from disk.
+                        </li>
+                    </ol>
+                </div>
+                <div class="admin-gate-panel-actions">
+                    <button type="button" id="admin-offline-retry" class="btn primary-btn">
+                        Check again
+                    </button>
+                    <a href="index.html" class="btn dashboard-outline-btn">Back to home</a>
+                </div>
+            </div>
+
+            <div id="admin-signed-in" class="admin-gate-panel" hidden>
+                <span class="admin-gate-panel-icon" aria-hidden="true">✓</span>
+                <div>
+                    <h2>Admin access is active</h2>
+                    <p id="admin-signed-in-text">This browser already has a valid admin session.</p>
+                </div>
+                <div class="admin-gate-panel-actions">
+                    <a class="btn primary-btn" id="admin-open-dashboard" href="dashboard.html">Open dashboard</a>
+                    <button type="button" id="admin-signout" class="btn dashboard-outline-btn">Sign out</button>
+                </div>
+            </div>
+
+            <form id="admin-password-form" class="auth-form admin-gate-form" novalidate hidden>
+                <p class="admin-gate-form-intro">
+                    Change the admin password. Every other signed-in session is closed.
+                </p>
+
+                <div class="form-field">
+                    <label for="current-password">
+                        Current password <span aria-hidden="true">*</span>
+                    </label>
+                    <input id="current-password"
+                           name="currentPassword"
+                           type="password"
+                           autocomplete="current-password"
+                           required>
+                </div>
+
+                <div class="form-field">
+                    <label for="new-password">
+                        New password <span aria-hidden="true">*</span>
+                    </label>
+                    <div class="password-field">
+                        <input id="new-password"
+                               name="newPassword"
+                               type="password"
+                               autocomplete="new-password"
+                               required>
+                        <button type="button"
+                                class="password-toggle"
+                                data-password-toggle="new-password"
+                                aria-label="Show new password">Show</button>
+                    </div>
+                    <p class="field-hint" id="password-change-hint">Use at least 10 characters with a letter and a number.</p>
+                </div>
+
+                <div class="form-field">
+                    <label for="new-password-confirm">
+                        Confirm new password <span aria-hidden="true">*</span>
+                    </label>
+                    <input id="new-password-confirm"
+                           name="confirmPassword"
+                           type="password"
+                           autocomplete="new-password"
+                           required>
+                </div>
+
+                <p id="admin-password-error"
+                   class="auth-message auth-error"
+                   role="alert"
+                   hidden></p>
+
+                <p id="admin-password-success"
+                   class="auth-message auth-success"
+                   role="status"
+                   aria-live="polite"
+                   hidden></p>
+
+                <button type="submit" class="btn primary-btn auth-submit">Update password</button>
+            </form>
+
+            <p class="auth-note">
+                <span aria-hidden="true">ⓘ</span>
+                The password is stored as a scrypt hash in data/admin.json and is
+                checked by the EstatePro server on every request. Change it any
+                time from this page, or with <code>npm run admin:password</code>.
+            </p>
+
+        </div>
+    </section>
+
+</main>
+
+<script src="js/admin-login.js"></script>
+</body>
+</html>

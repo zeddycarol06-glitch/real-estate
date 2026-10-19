@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Property Details | EstatePro</title>
+    <meta name="description" content="View full property details from EstatePro.">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="details-body">
+
+    <header class="header details-header">
+        <div class="container details-header-inner">
+            <a href="index.html" class="logo">
+                Estate<span>Pro</span>
+            </a>
+
+            <div class="details-header-actions">
+                <a href="index.html#properties" class="details-back-link">
+                    <span aria-hidden="true">←</span> Back to properties
+                </a>
+                <a href="index.html" class="btn register-btn">Home</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="details-main">
+        <div class="container">
+
+            <div id="details-loading" class="details-loading" role="status" aria-live="polite">
+                <span class="loading-spinner" aria-hidden="true"></span>
+                Loading property details…
+            </div>
+
+            <article id="property-detail" class="property-detail" hidden>
+                <div class="details-visual">
+                    <div class="details-image">
+                        <img id="details-image"
+                             src="images/property1.jpg"
+                             alt="Property image">
+                    </div>
+
+                    <div id="details-gallery" class="details-gallery" hidden>
+                        <p class="details-gallery-label">Photos</p>
+                        <div id="details-gallery-thumbs" class="details-gallery-thumbs"></div>
+                    </div>
+
+                    <p class="details-image-caption">Managed with EstatePro</p>
+                </div>
+
+                <div class="details-info">
+                    <div class="details-topline">
+                        <span id="details-status" class="property-status">Available</span>
+                        <span id="details-type" class="details-type">Apartment</span>
+                    </div>
+
+                    <h1 id="details-title">Property name</h1>
+                    <p id="details-location" class="location">📍 Property location</p>
+
+                    <dl class="details-meta">
+                        <div class="details-meta-item">
+                            <dt>Property ID</dt>
+                            <dd><code id="details-id">—</code></dd>
+                        </div>
+                        <div class="details-meta-item">
+                            <dt>Owner / landlord</dt>
+                            <dd id="details-owner">—</dd>
+                        </div>
+                    </dl>
+
+                    <p id="details-description" class="details-description">
+                        Property description will appear here.
+                    </p>
+
+                    <div class="details-price-row">
+                        <div>
+                            <span class="details-label">Monthly rent</span>
+                            <strong id="details-price" class="details-price">KSh 0/month</strong>
+                        </div>
+                        <span id="details-availability" class="details-availability">Available now</span>
+                    </div>
+
+                    <div class="details-specs" aria-label="Property specifications">
+                        <div class="details-spec">
+                            <span class="details-spec-icon" aria-hidden="true">🛏</span>
+                            <span><strong id="details-beds">0</strong> bedrooms</span>
+                        </div>
+                        <div class="details-spec">
+                            <span class="details-spec-icon" aria-hidden="true">🛁</span>
+                            <span><strong id="details-baths">0</strong> bathrooms</span>
+                        </div>
+                        <div class="details-spec">
+                            <span class="details-spec-icon" aria-hidden="true">🚗</span>
+                            <span id="details-parking">Parking</span>
+                        </div>
+                    </div>
+
+                    <div class="details-actions">
+                        <a id="pay-rent" href="tenant-payment.html" class="btn primary-btn">
+                            Make Payment
+                        </a>
+                        <a id="request-viewing" href="mailto:info@estatepro.com"
+                           class="btn details-secondary-btn">
+                            Request a viewing
+                        </a>
+                        <a href="index.html#properties" class="btn details-secondary-btn">
+                            Browse more properties
+                        </a>
+                    </div>
+                </div>
+            </article>
+
+            <section id="details-extra" class="details-extra" hidden>
+                <div class="details-amenities">
+                    <p class="subtitle">PROPERTY FEATURES</p>
+                    <h2>Designed for everyday comfort</h2>
+                    <p>
+                        Everything you need for a convenient and comfortable
+                        living experience.
+                    </p>
+
+                    <ul id="details-amenities-list" class="details-amenities-list"></ul>
+                </div>
+
+                <aside class="details-contact-card">
+                    <span class="details-contact-icon" aria-hidden="true">✦</span>
+                    <h2>Interested in this property?</h2>
+                    <p>
+                        Contact the EstatePro team to arrange a viewing or
+                        ask about availability.
+                    </p>
+                    <a href="mailto:info@estatepro.com" class="btn primary-btn">
+                        Contact EstatePro
+                    </a>
+                </aside>
+            </section>
+
+            <div id="details-error" class="details-error" role="alert" hidden>
+                <span class="details-error-icon" aria-hidden="true">!</span>
+                <div>
+                    <h2>Property not found</h2>
+                    <p>
+                        We could not find the property you requested. Return
+                        to the properties page to choose another home.
+                    </p>
+                    <a href="index.html#properties" class="btn primary-btn">
+                        View properties
+                    </a>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="footer-bottom">
+            <p>&copy; <span data-year>2026</span> EstatePro. All Rights Reserved.</p>
+        </div>
+    </footer>
+
+    <script src="js/property-fallback.js"></script>
+    <script src="js/property-details.js"></script>
+</body>
+</html>

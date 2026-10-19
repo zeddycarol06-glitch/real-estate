@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Landlord Payment Dashboard | EstatePro</title>
+    <meta name="description" content="Track tenant rent payments, outstanding balances and collection performance across your EstatePro properties.">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="dashboard-body">
+
+<div id="admin-lock" class="admin-lock" role="alert" tabindex="-1" hidden>
+    <div class="admin-lock-card">
+        <span class="admin-lock-icon" aria-hidden="true">🔒</span>
+        <p class="dashboard-eyebrow">ADMIN ONLY</p>
+        <h1>Landlord dashboard locked</h1>
+        <p id="admin-lock-message">Enter the admin password to open this workspace.</p>
+        <div class="admin-lock-actions">
+            <a id="admin-lock-signin" class="btn primary-btn" href="admin-login.html">Open admin sign-in</a>
+            <a href="index.html" class="btn dashboard-outline-btn">Back to website</a>
+        </div>
+    </div>
+</div>
+
+<div class="admin-container landlord-dashboard">
+
+    <aside class="sidebar" aria-label="Landlord dashboard navigation">
+
+        <div class="sidebar-logo">
+            <h2>Estate<span>Pro</span></h2>
+            <p>Landlord workspace</p>
+            <span class="admin-session-badge">
+                <span aria-hidden="true">🔐</span> Admin session
+            </span>
+        </div>
+
+        <nav class="admin-nav">
+            <ul>
+                <li>
+                    <a href="dashboard.html" class="active" aria-current="page">
+                        <span aria-hidden="true">🏠</span> Overview
+                    </a>
+                </li>
+                <li>
+                    <a href="#payments">
+                        <span aria-hidden="true">💳</span> Payments
+                    </a>
+                </li>
+                <li>
+                    <a href="#property-photos">
+                        <span aria-hidden="true">🏢</span> Properties
+                    </a>
+                </li>
+                <li>
+                    <a href="#tenants">
+                        <span aria-hidden="true">👥</span> Tenants
+                    </a>
+                </li>
+                <li>
+                    <a href="#maintenance">
+                        <span aria-hidden="true">🔧</span> Maintenance
+                    </a>
+                </li>
+            </ul>
+        </nav>
+
+        <div class="sidebar-bottom">
+            <a href="index.html">
+                <span aria-hidden="true">🌐</span> View website
+            </a>
+            <button id="logout-button" type="button">
+                <span aria-hidden="true">🚪</span> Logout
+            </button>
+        </div>
+
+    </aside>
+
+    <main class="admin-main">
+
+        <header class="admin-header">
+            <div>
+                <p class="dashboard-eyebrow">LANDLORD PORTFOLIO</p>
+                <h1>Payment dashboard</h1>
+                <p>See what has been paid, what is still outstanding and how each property is performing.</p>
+            </div>
+
+            <div class="admin-profile">
+                <div class="notification" aria-label="Notifications">
+                    🔔
+                    <span class="notification-dot" aria-hidden="true"></span>
+                </div>
+                <div class="profile-info">
+                    <strong id="profile-name">Landlord</strong>
+                    <small>Portfolio owner</small>
+                </div>
+            </div>
+        </header>
+
+        <section class="dashboard-toolbar" aria-label="Dashboard tools">
+            <div class="toolbar-status">
+                <span class="data-indicator" aria-hidden="true"></span>
+                <span>
+                    <strong>Portfolio view</strong>
+                    <small id="last-updated">Loading payment activity…</small>
+                </span>
+            </div>
+
+            <div class="toolbar-actions">
+                <button id="refresh-payments" type="button" class="btn dashboard-outline-btn">
+                    <span aria-hidden="true">↻</span> Refresh ledger
+                </button>
+                <button id="export-payments" type="button" class="btn dashboard-outline-btn">
+                    <span aria-hidden="true">⇩</span> Export CSV
+                </button>
+                <a href="index.html#properties" class="btn primary-btn">View properties</a>
+            </div>
+        </section>
+
+        <section class="dashboard-stats payment-stats" aria-label="Payment summary">
+            <article class="dashboard-card payment-stat-card">
+                <div class="card-icon payment-icon revenue" aria-hidden="true">💰</div>
+                <div>
+                    <p class="stat-label">Rent billed</p>
+                    <h3 id="total-billed">KSh 0</h3>
+                    <p class="stat-trend" id="total-billed-note">For the selected period</p>
+                </div>
+            </article>
+
+            <article class="dashboard-card payment-stat-card">
+                <div class="card-icon payment-icon collected" aria-hidden="true">✓</div>
+                <div>
+                    <p class="stat-label">Collected</p>
+                    <h3 id="total-collected">KSh 0</h3>
+                    <p class="stat-trend positive" id="collection-rate">0% collection rate</p>
+                </div>
+            </article>
+
+            <article class="dashboard-card payment-stat-card">
+                <div class="card-icon payment-icon outstanding" aria-hidden="true">◷</div>
+                <div>
+                    <p class="stat-label">Outstanding</p>
+                    <h3 id="total-outstanding">KSh 0</h3>
+                    <p class="stat-trend" id="outstanding-note">Awaiting payment</p>
+                </div>
+            </article>
+
+            <article class="dashboard-card payment-stat-card">
+                <div class="card-icon payment-icon overdue" aria-hidden="true">!</div>
+                <div>
+                    <p class="stat-label">Overdue</p>
+                    <h3 id="total-overdue">KSh 0</h3>
+                    <p class="stat-trend danger" id="overdue-note">Needs follow-up</p>
+                </div>
+            </article>
+
+            <article class="dashboard-card payment-stat-card">
+                <div class="card-icon payment-icon tenants" aria-hidden="true">👥</div>
+                <div>
+                    <p class="stat-label">Tenants paid</p>
+                    <h3 id="active-tenants">0</h3>
+                    <p class="stat-trend" id="tenant-note">Across your properties</p>
+                </div>
+            </article>
+        </section>
+
+        <section id="property-photos" class="dashboard-section property-photos-section" aria-labelledby="property-photos-title">
+            <div class="section-header">
+                <div>
+                    <p class="dashboard-eyebrow">PROPERTY GALLERIES</p>
+                    <h2 id="property-photos-title">Property photos</h2>
+                    <p>Add and manage the photos shown on your public property listings.</p>
+                </div>
+            </div>
+            <p id="property-photos-message" class="property-photos-message" role="status" aria-live="polite">
+                Loading properties…
+            </p>
+            <div id="property-photos-list" class="property-photos-grid"></div>
+        </section>
+
+        <section class="dashboard-grid payment-insights-grid" aria-label="Payment insights">
+            <section class="dashboard-section payment-chart-panel">
+                <div class="section-header">
+                    <div>
+                        <h2>Collection trend</h2>
+                        <p>Rent collected across your portfolio by month.</p>
+                    </div>
+                    <span class="chart-legend"><i aria-hidden="true"></i> Collected</span>
+                </div>
+
+                <div id="payment-chart" class="payment-chart" role="img" aria-label="Monthly rent collection chart" aria-describedby="payment-chart-data"></div>
+                <div id="payment-chart-data" class="sr-only" aria-live="polite"></div>
+            </section>
+
+            <section class="dashboard-section property-performance-panel">
+                <div class="section-header">
+                    <div>
+                        <h2>Property performance</h2>
+                        <p>Collection progress for the selected period.</p>
+                    </div>
+                </div>
+
+                <div id="property-breakdown" class="property-breakdown"></div>
+            </section>
+        </section>
+
+        <section id="tenants" class="dashboard-section tenants-section" aria-labelledby="tenants-title">
+            <div class="section-header">
+                <div>
+                    <p class="dashboard-eyebrow">TENANT MANAGEMENT</p>
+                    <h2 id="tenants-title">Your tenants</h2>
+                    <p>
+                        Add the people who live in your properties, keep their details
+                        up to date, and record rent you receive in person. Rent is only
+                        ever written to the payment ledger once the money has arrived.
+                    </p>
+                </div>
+                <div class="tenant-section-actions">
+                    <button id="add-tenant" type="button" class="tenant-button-primary">
+                        <span aria-hidden="true">＋</span> Add tenant
+                    </button>
+                    <button id="export-tenants" type="button" class="tenant-button-secondary">
+                        Export CSV
+                    </button>
+                </div>
+            </div>
+
+            <div class="tenant-summary-grid">
+                <div class="tenant-summary-tile">
+                    <span>Tenants on file</span>
+                    <strong id="tenant-total">0</strong>
+                </div>
+                <div class="tenant-summary-tile">
+                    <span>Have paid</span>
+                    <strong id="tenant-paid-count">0</strong>
+                </div>
+                <div class="tenant-summary-tile">
+                    <span>Not paid yet</span>
+                    <strong id="tenant-unpaid-count">0</strong>
+                </div>
+                <div class="tenant-summary-tile">
+                    <span>Monthly rent value</span>
+                    <strong id="tenant-rent-value">KSh 0</strong>
+                </div>
+            </div>
+
+            <form id="tenant-filters" class="payment-filters" role="search" aria-label="Tenant filters">
+                <label class="dashboard-filter payment-search-filter" for="tenant-search">
+                    <span>Search</span>
+                    <input id="tenant-search" type="search" placeholder="Name, email, phone or unit…">
+                </label>
+
+                <label class="dashboard-filter" for="tenant-property-filter">
+                    <span>Property</span>
+                    <select id="tenant-property-filter">
+                        <option value="">All properties</option>
+                    </select>
+                </label>
+
+                <label class="dashboard-filter" for="tenant-payment-filter">
+                    <span>Payment status</span>
+                    <select id="tenant-payment-filter">
+                        <option value="all">All tenants</option>
+                        <option value="paid">Has paid</option>
+                        <option value="unpaid">Not paid yet</option>
+                    </select>
+                </label>
+
+                <button id="reset-tenant-filters" type="button" class="dashboard-reset-btn">Reset</button>
+            </form>
+
+            <div class="payment-table-meta">
+                <p id="tenant-count" aria-live="polite">Loading tenants…</p>
+                <span>Deleting a tenant keeps their payment records.</span>
+            </div>
+
+            <div class="table-container payments-table-container" role="region" aria-label="Tenant list" tabindex="0">
+                <table class="payments-table tenants-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Tenant</th>
+                            <th scope="col">Contact</th>
+                            <th scope="col">Property &amp; unit</th>
+                            <th scope="col">Monthly rent</th>
+                            <th scope="col">Total paid</th>
+                            <th scope="col">Last payment</th>
+                            <th scope="col">Payment status</th>
+                            <th scope="col">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tenants-body"></tbody>
+                </table>
+            </div>
+
+            <div id="tenants-empty" class="payments-empty" hidden>
+                <span aria-hidden="true">👥</span>
+                <h3 id="tenants-empty-title">No tenants on file yet</h3>
+                <p id="tenants-empty-text">Add your first tenant to start keeping track of who lives where and what they owe.</p>
+            </div>
+        </section>
+
+        <section id="payments" class="dashboard-section payments-section">
+            <div class="section-header">
+                <div>
+                    <h2>Tenant payments</h2>
+                    <p>
+                        Only tenants who have paid are listed. A payment record is
+                        created the moment a payment is made and never before.
+                    </p>
+                </div>
+                <span class="payment-section-badge">Payment ledger</span>
+            </div>
+
+            <div class="pending-payment-review">
+                <div class="pending-payment-review-heading">
+                    <div>
+                        <h3>Payment requests needing review</h3>
+                        <p>Verify manually submitted Pochi receipts in Safaricom history before confirming. Safaricom callback mismatches are review-only and are not marked paid.</p>
+                    </div>
+                    <span id="pending-payment-count" class="payment-section-badge">Loading</span>
+                </div>
+                <div class="table-container payments-table-container" role="region" aria-label="Pochi payment requests awaiting landlord verification" tabindex="0">
+                    <table class="payments-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Tenant</th>
+                                <th scope="col">Property &amp; unit</th>
+                                <th scope="col">Amount</th>
+                                <th scope="col">M-Pesa reference</th>
+                                <th scope="col">Submitted</th>
+                                <th scope="col">Decision / review</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pending-payments-body"></tbody>
+                    </table>
+                </div>
+                <p id="pending-payments-empty" class="pending-payment-empty" hidden>No Pochi requests are awaiting verification.</p>
+            </div>
+
+            <form id="payment-filters" class="payment-filters" role="search" aria-label="Payment ledger filters">
+                <label class="dashboard-filter payment-search-filter" for="payment-search">
+                    <span>Search</span>
+                    <input id="payment-search" type="search" placeholder="Tenant, property or unit…">
+                </label>
+
+                <label class="dashboard-filter" for="property-filter">
+                    <span>Property</span>
+                    <select id="property-filter">
+                        <option value="">All properties</option>
+                    </select>
+                </label>
+
+                <label class="dashboard-filter" for="status-filter">
+                    <span>Status</span>
+                    <select id="status-filter">
+                        <option value="">All statuses</option>
+                        <option value="Paid">Paid in full</option>
+                        <option value="Partial">Part payment</option>
+                    </select>
+                </label>
+
+                <label class="dashboard-filter" for="period-filter">
+                    <span>Period</span>
+                    <select id="period-filter">
+                        <option value="">All periods</option>
+                    </select>
+                </label>
+
+                <button id="reset-filters" type="button" class="dashboard-reset-btn">Reset</button>
+            </form>
+
+            <div class="payment-table-meta">
+                <p id="payment-count" aria-live="polite">Loading payments…</p>
+                <span>Use the filters to narrow the ledger.</span>
+            </div>
+
+            <div class="table-container payments-table-container" role="region" aria-label="Tenant payment ledger" tabindex="0">
+                <table class="payments-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Payment ID</th>
+                            <th scope="col">Tenant</th>
+                            <th scope="col">Property</th>
+                            <th scope="col">Amount</th>
+                            <th scope="col">Payment date</th>
+                            <th scope="col">Payment method</th>
+                            <th scope="col">Payment status</th>
+                            <th scope="col"><span class="sr-only">Actions</span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="payments-body"></tbody>
+                </table>
+            </div>
+
+            <div id="payments-empty" class="payments-empty" hidden>
+                <span aria-hidden="true">🔎</span>
+                <h3 id="payments-empty-title">No payments match these filters</h3>
+                <p id="payments-empty-text">Try a different property, period or payment status.</p>
+            </div>
+        </section>
+
+        <section id="maintenance" class="dashboard-section maintenance-section" aria-labelledby="maintenance-title">
+            <div class="section-header">
+                <div>
+                    <h2 id="maintenance-title">Maintenance requests</h2>
+                    <p>
+                        Raised by tenants from their own area. Move a request along as
+                        you work on it, and leave a note so the tenant can see what happened.
+                    </p>
+                </div>
+                <span class="payment-section-badge">Repairs</span>
+            </div>
+
+            <div class="dashboard-stats maintenance-stats" aria-label="Maintenance summary">
+                <article class="dashboard-card payment-stat-card">
+                    <div class="card-icon payment-icon outstanding" aria-hidden="true">◷</div>
+                    <div>
+                        <p class="stat-label">Open</p>
+                        <h3 id="maintenance-open">0</h3>
+                        <p class="stat-trend" id="maintenance-open-note">Waiting to be started</p>
+                    </div>
+                </article>
+
+                <article class="dashboard-card payment-stat-card">
+                    <div class="card-icon payment-icon collected" aria-hidden="true">⚙</div>
+                    <div>
+                        <p class="stat-label">In progress</p>
+                        <h3 id="maintenance-progress">0</h3>
+                        <p class="stat-trend">Work under way</p>
+                    </div>
+                </article>
+
+                <article class="dashboard-card payment-stat-card">
+                    <div class="card-icon payment-icon overdue" aria-hidden="true">!</div>
+                    <div>
+                        <p class="stat-label">Emergencies</p>
+                        <h3 id="maintenance-emergency">0</h3>
+                        <p class="stat-trend" id="maintenance-emergency-note">Not yet resolved</p>
+                    </div>
+                </article>
+
+                <article class="dashboard-card payment-stat-card">
+                    <div class="card-icon payment-icon revenue" aria-hidden="true">✓</div>
+                    <div>
+                        <p class="stat-label">Resolved</p>
+                        <h3 id="maintenance-resolved">0</h3>
+                        <p class="stat-trend">Marked complete</p>
+                    </div>
+                </article>
+            </div>
+
+            <form id="maintenance-filters" class="payment-filters" role="search" aria-label="Maintenance request filters">
+                <label class="dashboard-filter payment-search-filter" for="maintenance-search">
+                    <span>Search</span>
+                    <input id="maintenance-search" type="search" placeholder="Tenant, unit, title or category…">
+                </label>
+
+                <label class="dashboard-filter" for="maintenance-status-filter">
+                    <span>Status</span>
+                    <select id="maintenance-status-filter">
+                        <option value="all">All requests</option>
+                        <option value="Open">Open</option>
+                        <option value="In progress">In progress</option>
+                        <option value="Resolved">Resolved</option>
+                        <option value="Cancelled">Cancelled</option>
+                    </select>
+                </label>
+
+                <label class="dashboard-filter" for="maintenance-property-filter">
+                    <span>Property</span>
+                    <select id="maintenance-property-filter">
+                        <option value="">All properties</option>
+                    </select>
+                </label>
+
+                <button id="reset-maintenance-filters" type="button" class="dashboard-reset-btn">Reset</button>
+            </form>
+
+            <div class="payment-table-meta">
+                <p id="maintenance-count" aria-live="polite">Loading maintenance requests…</p>
+                <span>Use the filters to narrow the list.</span>
+            </div>
+
+            <div class="table-container payments-table-container" role="region" aria-label="Tenant maintenance requests" tabindex="0">
+                <table class="payments-table maintenance-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Request</th>
+                            <th scope="col">Tenant</th>
+                            <th scope="col">Property</th>
+                            <th scope="col">Urgency</th>
+                            <th scope="col">Raised</th>
+                            <th scope="col">Status</th>
+                            <th scope="col"><span class="sr-only">Actions</span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="maintenance-body"></tbody>
+                </table>
+            </div>
+
+            <div id="maintenance-empty" class="payments-empty" hidden>
+                <span aria-hidden="true">🔧</span>
+                <h3 id="maintenance-empty-title">No maintenance requests yet</h3>
+                <p id="maintenance-empty-text">Requests raised by tenants will appear here.</p>
+            </div>
+        </section>
+
+        <section class="dashboard-section collection-reminder">
+            <div class="reminder-icon" aria-hidden="true">✓</div>
+            <div>
+                <h2>Keep collections on track</h2>
+                <p id="reminder-copy">Follow up with tenants whose rent is still outstanding.</p>
+            </div>
+            <a href="#payments" class="btn dashboard-outline-btn">Review outstanding payments</a>
+        </section>
+
+        <footer class="admin-footer">
+            <p>&copy; 2026 EstatePro. Landlord payment workspace.</p>
+        </footer>
+
+    </main>
+
+</div>
+
+<dialog id="payment-dialog" class="payment-dialog" aria-labelledby="payment-dialog-title">
+    <div class="payment-dialog-header">
+        <div>
+            <p class="dashboard-eyebrow">PAYMENT DETAILS</p>
+            <h2 id="payment-dialog-title">Payment record</h2>
+        </div>
+        <button id="close-payment-dialog" type="button" class="dialog-close" aria-label="Close payment details">×</button>
+    </div>
+    <div id="payment-dialog-content" class="payment-dialog-content"></div>
+</dialog>
+
+<dialog id="tenant-dialog" class="payment-dialog tenant-dialog" aria-labelledby="tenant-dialog-title">
+    <div class="payment-dialog-header">
+        <div>
+            <p class="dashboard-eyebrow">TENANT DETAILS</p>
+            <h2 id="tenant-dialog-title">Add a tenant</h2>
+        </div>
+        <button id="close-tenant-dialog" type="button" class="dialog-close" aria-label="Close tenant details">×</button>
+    </div>
+
+    <form id="tenant-form" class="tenant-form" novalidate>
+        <input id="tenant-id" type="hidden">
+
+        <p id="tenant-form-error" class="tenant-form-error" role="alert" hidden></p>
+
+        <div class="tenant-form-grid">
+            <label class="tenant-field" for="tenant-full-name">
+                <span>Full name</span>
+                <input id="tenant-full-name" name="fullName" type="text" autocomplete="off" required>
+            </label>
+
+            <label class="tenant-field" for="tenant-email">
+                <span>Email address</span>
+                <input id="tenant-email" name="email" type="email" autocomplete="off" required>
+            </label>
+
+            <label class="tenant-field" for="tenant-phone">
+                <span>Phone number</span>
+                <input id="tenant-phone" name="phone" type="tel" autocomplete="off" placeholder="07xx xxx xxx">
+            </label>
+
+            <label class="tenant-field" for="tenant-property">
+                <span>Property</span>
+                <select id="tenant-property" name="propertyId" required></select>
+            </label>
+
+            <label class="tenant-field" for="tenant-unit">
+                <span>Unit or house number</span>
+                <input id="tenant-unit" name="unit" type="text" autocomplete="off" placeholder="e.g. A03">
+            </label>
+
+            <label class="tenant-field" for="tenant-rent">
+                <span>Monthly rent (KSh)</span>
+                <input id="tenant-rent" name="monthlyRent" type="number" min="0" step="500" required>
+            </label>
+
+            <label class="tenant-field" for="tenant-status">
+                <span>Status</span>
+                <select id="tenant-status" name="status">
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                </select>
+            </label>
+
+            <label class="tenant-field tenant-field-wide" for="tenant-notes">
+                <span>Notes</span>
+                <textarea id="tenant-notes" name="notes" rows="2" placeholder="Anything worth remembering about this tenant"></textarea>
+            </label>
+        </div>
+
+        <div class="tenant-form-actions">
+            <button id="cancel-tenant" type="button" class="tenant-button-secondary">Cancel</button>
+            <button id="save-tenant" type="submit" class="tenant-button-primary">Save tenant</button>
+        </div>
+    </form>
+</dialog>
+
+<dialog id="tenant-profile-dialog" class="payment-dialog tenant-dialog" aria-labelledby="tenant-profile-title">
+    <div class="payment-dialog-header">
+        <div>
+            <p class="dashboard-eyebrow">TENANT PROFILE</p>
+            <h2 id="tenant-profile-title">Tenant</h2>
+        </div>
+        <button id="close-tenant-profile" type="button" class="dialog-close" aria-label="Close tenant profile">×</button>
+    </div>
+    <div id="tenant-profile-content" class="payment-dialog-content"></div>
+    <div class="tenant-form-actions">
+        <button id="profile-record-payment" type="button" class="tenant-button-primary">Record a payment</button>
+        <button id="profile-edit-tenant" type="button" class="tenant-button-secondary">Edit details</button>
+    </div>
+</dialog>
+
+<dialog id="tenant-payment-dialog" class="payment-dialog tenant-dialog" aria-labelledby="tenant-payment-title">
+    <div class="payment-dialog-header">
+        <div>
+            <p class="dashboard-eyebrow">RECORD RENT RECEIVED</p>
+            <h2 id="tenant-payment-title">Record a payment</h2>
+        </div>
+        <button id="close-tenant-payment" type="button" class="dialog-close" aria-label="Close payment form">×</button>
+    </div>
+
+    <form id="tenant-payment-form" class="tenant-form" novalidate>
+        <p id="tenant-payment-error" class="tenant-form-error" role="alert" hidden></p>
+        <p id="tenant-payment-summary" class="tenant-payment-summary"></p>
+
+        <div class="tenant-form-grid">
+            <label class="tenant-field" for="tenant-payment-property">
+                <span>Property</span>
+                <select id="tenant-payment-property" name="propertyId" required></select>
+            </label>
+
+            <label class="tenant-field" for="tenant-payment-unit">
+                <span>Unit or house number</span>
+                <input id="tenant-payment-unit" name="unit" type="text" autocomplete="off" required>
+            </label>
+
+            <label class="tenant-field" for="tenant-payment-period">
+                <span>Rent period</span>
+                <select id="tenant-payment-period" name="periodKey" required></select>
+            </label>
+
+            <label class="tenant-field" for="tenant-payment-method">
+                <span>Payment method</span>
+                <select id="tenant-payment-method" name="method" required>
+                    <option value="Pochi la Biashara">Pochi la Biashara</option>
+                    <option value="Mobile Money">Mobile Money</option>
+                    <option value="Bank Transfer">Bank Transfer</option>
+                    <option value="Card">Card</option>
+                    <option value="Cash">Cash</option>
+                </select>
+            </label>
+
+            <label class="tenant-field" for="tenant-payment-payer-phone">
+                <span>Payer phone number (if applicable)</span>
+                <input id="tenant-payment-payer-phone" name="payerPhone" type="tel" autocomplete="tel">
+            </label>
+
+            <label class="tenant-field tenant-field-wide" for="tenant-payment-amount">
+                <span>Amount received (KSh)</span>
+                <input id="tenant-payment-amount" name="amount" type="number" min="1" step="500" required>
+            </label>
+        </div>
+
+        <div class="tenant-form-actions">
+            <button id="cancel-tenant-payment" type="button" class="tenant-button-secondary">Cancel</button>
+            <button id="save-tenant-payment" type="submit" class="tenant-button-primary">Record payment</button>
+        </div>
+    </form>
+</dialog>
+
+<dialog id="maintenance-dialog" class="payment-dialog maintenance-dialog" aria-labelledby="maintenance-dialog-title">
+    <div class="payment-dialog-header">
+        <div>
+            <p class="dashboard-eyebrow">MAINTENANCE REQUEST</p>
+            <h2 id="maintenance-dialog-title">Request details</h2>
+        </div>
+        <button id="close-maintenance-dialog" type="button" class="dialog-close" aria-label="Close maintenance request">×</button>
+    </div>
+
+    <div id="maintenance-dialog-content" class="payment-dialog-content"></div>
+
+    <form id="maintenance-form" class="tenant-form" novalidate>
+        <input id="maintenance-id" type="hidden">
+
+        <p id="maintenance-form-error" class="tenant-form-error" role="alert" hidden></p>
+
+        <div class="tenant-form-grid">
+            <label class="tenant-field" for="maintenance-form-status">
+                <span>Status</span>
+                <select id="maintenance-form-status" name="status">
+                    <option value="Open">Open</option>
+                    <option value="In progress">In progress</option>
+                    <option value="Resolved">Resolved</option>
+                    <option value="Cancelled">Cancelled</option>
+                </select>
+            </label>
+
+            <label class="tenant-field tenant-field-wide" for="maintenance-form-notes">
+                <span>Note for the tenant</span>
+                <textarea id="maintenance-form-notes" name="landlordNotes" rows="3" maxlength="2000"></textarea>
+            </label>
+        </div>
+
+        <div class="tenant-form-actions">
+            <button id="cancel-maintenance" type="button" class="tenant-button-secondary">Close</button>
+            <button id="save-maintenance" type="submit" class="tenant-button-primary">Save changes</button>
+        </div>
+    </form>
+</dialog>
+
+<dialog id="tenant-delete-dialog" class="payment-dialog tenant-dialog tenant-dialog-narrow" aria-labelledby="tenant-delete-title">
+    <div class="payment-dialog-header">
+        <div>
+            <p class="dashboard-eyebrow">CONFIRM REMOVAL</p>
+            <h2 id="tenant-delete-title">Remove tenant</h2>
+        </div>
+        <button id="close-tenant-delete" type="button" class="dialog-close" aria-label="Close remove confirmation">×</button>
+    </div>
+    <div class="payment-dialog-content">
+        <p id="tenant-delete-message">This removes the tenant from your list.</p>
+        <p class="tenant-delete-note">Their payment records stay in the payment ledger.</p>
+    </div>
+    <div class="tenant-form-actions">
+        <button id="cancel-tenant-delete" type="button" class="tenant-button-secondary">Keep tenant</button>
+        <button id="confirm-tenant-delete" type="button" class="tenant-button-danger">Remove tenant</button>
+    </div>
+</dialog>
+
+<div id="dashboard-toast" class="dashboard-toast" role="status" aria-live="polite" hidden></div>
+
+<script src="js/dashboard.js"></script>
+<script src="js/property-images.js"></script>
+<script src="js/tenant-admin.js"></script>
+<script src="js/maintenance-admin.js"></script>
+</body>
+</html>

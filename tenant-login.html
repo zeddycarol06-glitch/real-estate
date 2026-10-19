@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tenant Sign In | EstatePro</title>
+    <meta name="description" content="Sign in to your EstatePro tenant area to see your home, pay rent and raise maintenance requests.">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="auth-body admin-gate-body">
+
+<main class="auth-page">
+
+    <aside class="auth-aside">
+        <a href="index.html" class="logo">
+            Estate<span>Pro</span>
+        </a>
+
+        <div class="auth-aside-content">
+            <p class="subtitle">TENANT AREA</p>
+
+            <h1>
+                Your home, your rent,
+                <span>in one place.</span>
+            </h1>
+
+            <p>
+                Sign in to check your rent position, review your payments,
+                raise a maintenance request and keep your details current.
+            </p>
+
+            <ul class="auth-benefits" aria-label="Tenant account benefits">
+                <li>
+                    <span aria-hidden="true">✓</span>
+                    See the property you rent and its landlord
+                </li>
+                <li>
+                    <span aria-hidden="true">✓</span>
+                    Pay rent and keep every receipt in one history
+                </li>
+                <li>
+                    <span aria-hidden="true">✓</span>
+                    Report repairs and follow their progress
+                </li>
+            </ul>
+        </div>
+
+        <p class="auth-aside-note">
+            No account yet? <a href="login.html?mode=register">Register as a tenant</a>.
+        </p>
+    </aside>
+
+    <section class="auth-main" aria-label="Tenant access">
+        <div class="auth-card admin-gate-card">
+
+            <a href="index.html" class="auth-back-link">
+                <span aria-hidden="true">←</span> Back to home
+            </a>
+
+            <div class="auth-card-header">
+                <p class="subtitle">TENANT SIGN IN</p>
+                <h1 id="tenant-signin-title">Open your tenant area</h1>
+                <p id="tenant-signin-description">
+                    Use the email and password you registered with. This is
+                    separate from the landlord admin password.
+                </p>
+            </div>
+
+            <p id="tenant-signin-notice"
+               class="auth-message auth-gate-notice"
+               role="status"
+               aria-live="polite"
+               hidden></p>
+
+            <form id="tenant-signin-form" class="auth-form" novalidate>
+                <div class="form-field">
+                    <label for="tenant-email">
+                        Email address <span aria-hidden="true">*</span>
+                    </label>
+                    <input id="tenant-email"
+                           name="email"
+                           type="email"
+                           autocomplete="username"
+                           placeholder="you@example.com"
+                           required>
+                </div>
+
+                <div class="form-field">
+                    <label for="tenant-password">
+                        Password <span aria-hidden="true">*</span>
+                    </label>
+                    <div class="password-field">
+                        <input id="tenant-password"
+                               name="password"
+                               type="password"
+                               autocomplete="current-password"
+                               placeholder="Enter your password"
+                               required>
+                        <button type="button"
+                                class="password-toggle"
+                                data-password-toggle="tenant-password"
+                                aria-label="Show your password">Show</button>
+                    </div>
+                </div>
+
+                <p id="tenant-signin-error"
+                   class="auth-message auth-error"
+                   role="alert"
+                   hidden></p>
+
+                <button id="tenant-signin-submit"
+                        type="submit"
+                        class="btn primary-btn auth-submit">
+                    Sign in
+                </button>
+            </form>
+
+            <div id="tenant-signed-in" class="admin-gate-panel" hidden>
+                <span class="admin-gate-panel-icon" aria-hidden="true">✓</span>
+                <div>
+                    <h2>You are already signed in</h2>
+                    <p id="tenant-signed-in-text">This browser already has a valid tenant session.</p>
+                </div>
+                <div class="admin-gate-panel-actions">
+                    <a class="btn primary-btn" id="tenant-open-portal" href="tenant-portal.html">Open my tenant area</a>
+                    <button type="button" id="tenant-signout" class="btn dashboard-outline-btn">Sign out</button>
+                </div>
+            </div>
+
+            <div id="tenant-offline" class="admin-gate-panel admin-gate-offline" hidden>
+                <span class="admin-gate-panel-icon" aria-hidden="true">!</span>
+                <div>
+                    <h2>The EstatePro server is not answering</h2>
+                    <p>
+                        Tenant passwords are checked by the EstatePro server, so
+                        this page cannot sign you in until it is running.
+                    </p>
+                    <ol class="admin-gate-steps">
+                        <li>Open a terminal in the EstatePro project folder.</li>
+                        <li>
+                            Run <code>npm start</code>, or double-click
+                            <code>start-estatepro.bat</code>.
+                        </li>
+                        <li>
+                            Open
+                            <code id="tenant-offline-url">http://localhost:3000/tenant-login.html</code>
+                            in your browser rather than the file on disk.
+                        </li>
+                    </ol>
+                </div>
+                <div class="admin-gate-panel-actions">
+                    <button type="button" id="tenant-offline-retry" class="btn primary-btn">
+                        Check again
+                    </button>
+                    <a href="index.html" class="btn dashboard-outline-btn">Back to home</a>
+                </div>
+            </div>
+
+            <p class="auth-note">
+                <span aria-hidden="true">ⓘ</span>
+                Your password is stored as a scrypt hash in
+                <code>data/tenants.json</code> and checked by the EstatePro
+                server. Sessions end after two hours.
+            </p>
+
+            <p class="auth-note">
+                <span aria-hidden="true">🔒</span>
+                <a href="admin-login.html">Landlord?</a>
+                The admin dashboard uses a different password.
+            </p>
+
+        </div>
+    </section>
+
+</main>
+
+<script src="js/tenant-login.js"></script>
+</body>
+</html>

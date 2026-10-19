@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Tenant Area | EstatePro</title>
+    <meta name="description" content="Your EstatePro tenant area: dashboard, your property, rent and payments, maintenance requests and profile.">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="portal-body">
+
+<header class="portal-header">
+    <div class="container portal-header-inner">
+        <a href="index.html" class="logo">
+            Estate<span>Pro</span>
+        </a>
+
+        <div class="portal-header-identity">
+            <span class="portal-session-badge">
+                <span aria-hidden="true">🔐</span> Tenant session
+            </span>
+            <span class="portal-tenant-name" id="portal-tenant-name">Loading…</span>
+        </div>
+
+        <nav class="portal-header-actions" aria-label="Tenant area actions">
+            <a href="index.html">Back to website</a>
+            <button id="portal-signout" type="button" class="dashboard-outline-btn">Sign out</button>
+        </nav>
+    </div>
+</header>
+
+<main class="portal-main">
+    <div class="container">
+
+        <section class="portal-hero" aria-labelledby="portal-hero-title">
+            <div>
+                <p class="subtitle" id="portal-hero-period">TENANT AREA</p>
+                <h1 id="portal-hero-title">Welcome back</h1>
+                <p id="portal-hero-text">
+                    Your rent position, your home and anything that needs attention.
+                </p>
+            </div>
+
+            <div class="portal-hero-actions">
+                <a href="#rent" class="btn primary-btn">Pay rent</a>
+                <a href="#maintenance" class="btn dashboard-outline-btn">Raise a request</a>
+            </div>
+        </section>
+
+        <p id="portal-notice" class="portal-notice" role="status" aria-live="polite" hidden></p>
+
+        <div class="portal-layout">
+
+            <nav class="portal-nav" aria-label="Tenant area sections">
+                <ul>
+                    <li>
+                        <a href="#dashboard" class="active" aria-current="page" data-section="dashboard">
+                            <span aria-hidden="true">📊</span> Dashboard
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#property" data-section="property">
+                            <span aria-hidden="true">🏠</span> My property
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#rent" data-section="rent">
+                            <span aria-hidden="true">💳</span> Rent &amp; payments
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#maintenance" data-section="maintenance">
+                            <span aria-hidden="true">🔧</span> Maintenance
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#profile" data-section="profile">
+                            <span aria-hidden="true">👤</span> Profile
+                        </a>
+                    </li>
+                </ul>
+
+                <div class="portal-nav-footer">
+                    <a href="admin-login.html">
+                        <span aria-hidden="true">🔒</span> Landlord sign in
+                    </a>
+                </div>
+            </nav>
+
+            <div class="portal-content">
+
+                <!-- Dashboard -->
+                <section id="dashboard" class="portal-section" aria-labelledby="dashboard-title">
+                    <div class="section-header">
+                        <div>
+                            <h2 id="dashboard-title">Dashboard</h2>
+                            <p id="dashboard-summary">Loading your rent position…</p>
+                        </div>
+                        <span class="payment-section-badge" id="dashboard-badge">Loading</span>
+                    </div>
+
+                    <div class="portal-stats" aria-label="Rent summary">
+                        <article class="dashboard-card payment-stat-card">
+                            <div class="card-icon payment-icon revenue" aria-hidden="true">💰</div>
+                            <div>
+                                <p class="stat-label">Monthly rent</p>
+                                <h3 id="stat-rent">KSh 0</h3>
+                                <p class="stat-trend" id="stat-rent-note">Per month</p>
+                            </div>
+                        </article>
+
+                        <article class="dashboard-card payment-stat-card">
+                            <div class="card-icon payment-icon collected" aria-hidden="true">✓</div>
+                            <div>
+                                <p class="stat-label">Paid this month</p>
+                                <h3 id="stat-paid">KSh 0</h3>
+                                <p class="stat-trend" id="stat-paid-note">of your rent</p>
+                            </div>
+                        </article>
+
+                        <article class="dashboard-card payment-stat-card">
+                            <div class="card-icon payment-icon outstanding" aria-hidden="true">◷</div>
+                            <div>
+                                <p class="stat-label">Still due</p>
+                                <h3 id="stat-due">KSh 0</h3>
+                                <p class="stat-trend" id="stat-due-note">For this month</p>
+                            </div>
+                        </article>
+
+                        <article class="dashboard-card payment-stat-card">
+                            <div class="card-icon payment-icon overdue" aria-hidden="true">🔧</div>
+                            <div>
+                                <p class="stat-label">Open requests</p>
+                                <h3 id="stat-requests">0</h3>
+                                <p class="stat-trend" id="stat-requests-note">Maintenance</p>
+                            </div>
+                        </article>
+                    </div>
+
+                    <div class="portal-panels">
+                        <article class="dashboard-section portal-panel">
+                            <div class="section-header">
+                                <div>
+                                    <h3>Where you live</h3>
+                                    <p id="dashboard-property-note">Loading your property…</p>
+                                </div>
+                                <a href="#property" class="btn dashboard-outline-btn">Full details</a>
+                            </div>
+                            <dl class="details-meta" id="dashboard-property-meta"></dl>
+                        </article>
+
+                        <article class="dashboard-section portal-panel">
+                            <div class="section-header">
+                                <div>
+                                    <h3>Recent payments</h3>
+                                    <p>Your last recorded payments.</p>
+                                </div>
+                                <a href="#rent" class="btn dashboard-outline-btn">All payments</a>
+                            </div>
+                            <div id="dashboard-payments" class="portal-list"></div>
+                        </article>
+                    </div>
+
+                    <article class="dashboard-section portal-panel">
+                        <div class="section-header">
+                            <div>
+                                <h3>Your maintenance requests</h3>
+                                <p>Track anything you have reported.</p>
+                            </div>
+                            <a href="#maintenance" class="btn dashboard-outline-btn">Manage requests</a>
+                        </div>
+                        <div id="dashboard-requests" class="portal-list"></div>
+                    </article>
+                </section>
+
+                <!-- My property -->
+                <section id="property" class="portal-section" aria-labelledby="property-title">
+                    <div class="section-header">
+                        <div>
+                            <h2 id="property-title">My property</h2>
+                            <p>The home recorded on your EstatePro account.</p>
+                        </div>
+                        <a id="property-details-link" href="#" class="btn dashboard-outline-btn">View public listing</a>
+                    </div>
+
+                    <article class="dashboard-section portal-property">
+                        <div class="portal-property-gallery">
+                            <div id="property-gallery" class="details-gallery">
+                                <img id="property-gallery-hero" src="" alt="" hidden>
+                                <div id="property-gallery-thumbs" class="details-gallery-thumbs"></div>
+                            </div>
+                            <div id="property-photo-fallback" class="property-image-fallback" hidden>
+                                <span id="property-fallback-initial" aria-hidden="true">E</span>
+                            </div>
+                        </div>
+
+                        <div class="portal-property-body">
+                            <p class="property-content-type" id="property-type"></p>
+                            <h3 id="property-name"></h3>
+                            <p class="property-location" id="property-location"></p>
+                            <p class="property-price" id="property-price"></p>
+                            <p class="property-description" id="property-description"></p>
+                            <dl class="details-meta" id="property-meta"></dl>
+                            <p id="property-availability" class="availability-chip"></p>
+                            <div id="property-amenities" class="portal-amenities" hidden>
+                                <h4>What's included</h4>
+                                <ul id="property-amenities-list"></ul>
+                            </div>
+                        </div>
+                    </article>
+
+                    <div id="property-unassigned" class="payments-empty" hidden>
+                        <span aria-hidden="true">🏠</span>
+                        <h3>No property on your account yet</h3>
+                        <p>
+                            Your landlord has not linked a property to this account.
+                            Ask them to add it from the dashboard, then reload this page.
+                        </p>
+                    </div>
+                </section>
+
+                <!-- Rent and payments -->
+                <section id="rent" class="portal-section" aria-labelledby="rent-title">
+                    <div class="section-header">
+                        <div>
+                            <h2 id="rent-title">Rent &amp; payments</h2>
+                            <p>Submit Pochi payment details. Rent is recorded only after verification.</p>
+                        </div>
+                        <span class="payment-section-badge" id="rent-badge">Loading</span>
+                    </div>
+
+                    <div class="portal-rent-grid">
+                        <article class="dashboard-section portal-panel">
+                            <div class="section-header">
+                                <div>
+                                    <h3>Pay rent</h3>
+                                    <p id="rent-pay-note">Your rent position for the current month.</p>
+                                </div>
+                            </div>
+
+                            <form id="rent-form" class="tenant-form" novalidate>
+                                <p id="rent-form-error" class="tenant-form-error" role="alert" hidden></p>
+                                <p id="rent-payment-request-status" class="tenant-payment-request-status" role="status" hidden></p>
+                                <p class="tenant-payment-instructions">Enter the Safaricom number that should receive the STK prompt. Approve it with your M-Pesa PIN. Rent is recorded only after Safaricom confirms the payment.</p>
+
+                                <div class="tenant-form-grid">
+                                    <label class="tenant-field" for="rent-amount">
+                                        <span>Amount (KSh)</span>
+                                        <input id="rent-amount" name="amount" type="number" min="1" step="500" required>
+                                        <small class="field-hint" id="rent-amount-hint"></small>
+                                    </label>
+
+                                    <label class="tenant-field" for="rent-method">
+                                        <span>Payment method</span>
+                                        <select id="rent-method" name="method">
+                                            <option value="M-Pesa STK Push">M-Pesa STK Push</option>
+                                        </select>
+                                    </label>
+
+                                    <label class="tenant-field" for="rent-period">
+                                        <span>Rent period</span>
+                                        <input id="rent-period" name="periodKey" type="month" required>
+                                    </label>
+
+                                    <label class="tenant-field" for="rent-unit">
+                                        <span>Unit</span>
+                                        <input id="rent-unit" name="unit" type="text" maxlength="30" required>
+                                    </label>
+
+                                    <label class="tenant-field" for="rent-payment-phone">
+                                        <span>M-Pesa phone number</span>
+                                        <input id="rent-payment-phone" name="phoneNumber" type="tel" inputmode="tel" autocomplete="tel" pattern="(?:0[17][0-9]{8}|\+?254[17][0-9]{8})" placeholder="0712345678" required>
+                                    </label>
+                                </div>
+
+                                <div class="tenant-form-actions">
+                                    <a href="tenant-payment.html" class="tenant-button-secondary">Open the full payment form</a>
+                                    <button id="rent-submit" type="submit" class="tenant-button-primary">Send STK Push</button>
+                                </div>
+                            </form>
+                        </article>
+
+                        <article class="dashboard-section portal-panel">
+                            <div class="section-header">
+                                <div>
+                                    <h3>Rent summary</h3>
+                                    <p>Your position with EstatePro.</p>
+                                </div>
+                            </div>
+                            <dl class="details-meta" id="rent-summary"></dl>
+                        </article>
+                    </div>
+
+                    <article class="dashboard-section portal-panel">
+                        <div class="section-header">
+                            <div>
+                                <h3>Payment history</h3>
+                                <p>Only payments you have actually made are listed.</p>
+                            </div>
+                            <span id="payment-history-count" class="payment-section-badge">0 payments</span>
+                        </div>
+                        <div class="table-container payments-table-container" role="region" aria-label="Your payment history" tabindex="0">
+                            <table class="payments-table">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Receipt</th>
+                                        <th scope="col">Period</th>
+                                        <th scope="col">Amount paid</th>
+                                        <th scope="col">Date</th>
+                                        <th scope="col">Method</th>
+                                        <th scope="col">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="rent-payments-body"></tbody>
+                            </table>
+                        </div>
+
+                        <div id="rent-payments-empty" class="payments-empty" hidden>
+                            <span aria-hidden="true">🧾</span>
+                            <h3>No payments recorded yet</h3>
+                            <p>Your first payment will appear here with its receipt number.</p>
+                        </div>
+                    </article>
+                </section>
+
+                <!-- Maintenance -->
+                <section id="maintenance" class="portal-section" aria-labelledby="maintenance-title">
+                    <div class="section-header">
+                        <div>
+                            <h2 id="maintenance-title">Maintenance requests</h2>
+                            <p>Report a problem and follow what your landlord does about it.</p>
+                        </div>
+                        <span class="payment-section-badge" id="maintenance-badge">0 open</span>
+                    </div>
+
+                    <div class="portal-maintenance-grid">
+                        <article class="dashboard-section portal-panel">
+                            <div class="section-header">
+                                <div>
+                                    <h3>Raise a request</h3>
+                                    <p>Tell your landlord what needs fixing.</p>
+                                </div>
+                            </div>
+
+                            <form id="maintenance-form" class="tenant-form" novalidate>
+                                <p id="maintenance-form-error" class="tenant-form-error" role="alert" hidden></p>
+
+                                <div class="tenant-form-grid">
+                                    <label class="tenant-field" for="maintenance-category">
+                                        <span>Category</span>
+                                        <select id="maintenance-category" name="category">
+                                            <option value="Plumbing">Plumbing</option>
+                                            <option value="Electrical">Electrical</option>
+                                            <option value="Appliance">Appliance</option>
+                                            <option value="Structural">Structural</option>
+                                            <option value="Pest control">Pest control</option>
+                                            <option value="Other">Other</option>
+                                        </select>
+                                    </label>
+
+                                    <label class="tenant-field" for="maintenance-urgency">
+                                        <span>How urgent is it?</span>
+                                        <select id="maintenance-urgency" name="urgency">
+                                            <option value="Low">Low — not urgent</option>
+                                            <option value="Normal" selected>Normal</option>
+                                            <option value="High">High — affecting daily life</option>
+                                            <option value="Emergency">Emergency — unsafe or uninhabitable</option>
+                                        </select>
+                                    </label>
+
+                                    <label class="tenant-field tenant-field-wide" for="maintenance-request-title">
+                                        <span>Short title</span>
+                                        <input id="maintenance-request-title" name="title" type="text" minlength="4" maxlength="120" required>
+                                    </label>
+
+                                    <label class="tenant-field tenant-field-wide" for="maintenance-description">
+                                        <span>What is the problem?</span>
+                                        <textarea id="maintenance-description" name="description" rows="4" minlength="10" maxlength="2000" required></textarea>
+                                        <small class="field-hint">At least 10 characters, so your landlord knows what to expect.</small>
+                                    </label>
+                                </div>
+
+                                <div class="tenant-form-actions">
+                                    <button id="maintenance-submit" type="submit" class="tenant-button-primary">Send request</button>
+                                </div>
+                            </form>
+                        </article>
+
+                        <article class="dashboard-section portal-panel">
+                            <div class="section-header">
+                                <div>
+                                    <h3>Your requests</h3>
+                                    <p>Everything you have reported.</p>
+                                </div>
+                            </div>
+                            <div id="maintenance-list" class="portal-list"></div>
+                        </article>
+                    </div>
+                </section>
+
+                <!-- Profile -->
+                <section id="profile" class="portal-section" aria-labelledby="profile-title">
+                    <div class="section-header">
+                        <div>
+                            <h2 id="profile-title">Profile</h2>
+                            <p>Keep your contact details current so your landlord can reach you.</p>
+                        </div>
+                    </div>
+
+                    <div class="portal-rent-grid">
+                        <article class="dashboard-section portal-panel">
+                            <div class="section-header">
+                                <div>
+                                    <h3>Your details</h3>
+                                    <p>Your email is also your sign-in name.</p>
+                                </div>
+                            </div>
+
+                            <form id="profile-form" class="tenant-form" novalidate>
+                                <p id="profile-form-error" class="tenant-form-error" role="alert" hidden></p>
+                                <p id="profile-form-success" class="auth-message auth-success" role="status" aria-live="polite" hidden></p>
+
+                                <div class="tenant-form-grid">
+                                    <label class="tenant-field" for="profile-full-name">
+                                        <span>Full name</span>
+                                        <input id="profile-full-name" name="fullName" type="text" autocomplete="name" required>
+                                    </label>
+
+                                    <label class="tenant-field" for="profile-email">
+                                        <span>Email address</span>
+                                        <input id="profile-email" name="email" type="email" autocomplete="email" required>
+                                    </label>
+
+                                    <label class="tenant-field" for="profile-phone">
+                                        <span>Phone number</span>
+                                        <input id="profile-phone" name="phone" type="tel" autocomplete="tel">
+                                    </label>
+
+                                    <label class="tenant-field" for="profile-unit">
+                                        <span>Unit or house number</span>
+                                        <input id="profile-unit" name="unit" type="text" maxlength="40">
+                                    </label>
+                                </div>
+
+                                <div class="tenant-form-actions">
+                                    <button id="profile-submit" type="submit" class="tenant-button-primary">Save my details</button>
+                                </div>
+                            </form>
+                        </article>
+
+                        <article class="dashboard-section portal-panel">
+                            <div class="section-header">
+                                <div>
+                                    <h3>Change your password</h3>
+                                    <p>Only your password is stored for sign-in.</p>
+                                </div>
+                            </div>
+
+                            <form id="password-form" class="tenant-form" novalidate>
+                                <p id="password-form-error" class="tenant-form-error" role="alert" hidden></p>
+                                <p id="password-form-success" class="auth-message auth-success" role="status" aria-live="polite" hidden></p>
+
+                                <div class="tenant-form-grid">
+                                    <label class="tenant-field" for="password-current">
+                                        <span>Current password</span>
+                                        <input id="password-current" name="currentPassword" type="password" autocomplete="current-password" required>
+                                    </label>
+
+                                    <label class="tenant-field" for="password-new">
+                                        <span>New password</span>
+                                        <input id="password-new" name="newPassword" type="password" autocomplete="new-password" required>
+                                    </label>
+
+                                    <label class="tenant-field" for="password-confirm">
+                                        <span>Confirm new password</span>
+                                        <input id="password-confirm" name="confirmPassword" type="password" autocomplete="new-password" required>
+                                    </label>
+                                </div>
+
+                                <p class="field-hint" id="password-hint">Use at least 10 characters with a letter and a number.</p>
+
+                                <div class="tenant-form-actions">
+                                    <button id="password-submit" type="submit" class="tenant-button-primary">Update password</button>
+                                </div>
+                            </form>
+                        </article>
+                    </div>
+
+                    <article class="dashboard-section portal-panel">
+                        <div class="section-header">
+                            <div>
+                                <h3>Account</h3>
+                                <p>How EstatePro holds your record.</p>
+                            </div>
+                        </div>
+                        <dl class="details-meta" id="account-meta"></dl>
+                    </article>
+                </section>
+
+            </div>
+        </div>
+
+    </div>
+</main>
+
+<footer class="admin-footer">
+    <div class="container">
+        <p>&copy; 2026 EstatePro. Tenant area.</p>
+    </div>
+</footer>
+
+<div id="portal-toast" class="dashboard-toast" role="status" aria-live="polite" hidden></div>
+
+<script src="js/tenant-portal.js"></script>
+</body>
+</html>

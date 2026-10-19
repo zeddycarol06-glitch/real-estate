@@ -1,0 +1,6 @@
+{
+    "salt": "fe63166daa0bcf3d630411e0c5b7b432",
+    "passwordHash": "370a99f6b49c296dbb67176b2563d07f3515ea63fa53bfe6577bf1d23cd750c276beae4a9ab975e8a1dfbfc994081bdabe8742746fda55caa43dcfe36e9687fc",
+    "algorithm": "scrypt",
+    "updatedAt": "2026-10-05T18:12:09.510Z"
+}

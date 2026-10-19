@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>EstatePro | Property Management System</title>
+
+<meta name="description"
+      content="A modern real estate property management system for managing properties, tenants and maintenance requests.">
+
+<link rel="stylesheet" href="style.css">
+
+</head>
+
+<body>
+
+<!-- ================= HEADER ================= -->
+<header class="header">
+
+    <div class="container">
+
+        <a href="index.html" class="logo">
+            Estate<span>Pro</span>
+        </a>
+
+        <nav class="navbar">
+4qar5ftd            <ul class="nav-links">
+                <li><a href="#home">Home</a></li>
+                <li><a href="#properties">Properties</a></li>
+                <li><a href="tenant-payment.html">Pay rent</a></li>
+                <li><a href="admin-login.html">Landlord Dashboard</a></li>
+                <li><a href="#recommendations">Find a Home</a></li>
+                <li><a href="#features">Features</a></li>
+                <li><a href="#about">About</a></li>
+                <li><a href="#contact">Contact</a></li>
+            </ul>
+
+            <div class="nav-buttons">
+                <a href="login.html?mode=login" class="btn login-btn">Login</a>
+                <a href="login.html?mode=register" class="btn register-btn">Register</a>
+            </div>
+        </nav>
+
+        <button class="menu-btn" aria-label="Open navigation menu" aria-expanded="false">
+            ☰
+        </button>
+
+    </div>
+
+</header>
+
+
+<!-- ================= HERO SECTION ================= -->
+<main>
+
+    <section id="home" class="hero">
+
+        <div class="container hero-content">
+
+            <div class="hero-text">
+
+                <p class="subtitle">PROPERTY MANAGEMENT MADE SIMPLE</p>
+
+                <h1>
+                    Manage Your Properties
+                    <span>Smarter & Faster</span>
+                </h1>
+
+                <p>
+                    EstatePro helps property managers, landlords and tenants
+                    manage properties, tenants and maintenance requests
+                    from one centralized platform.
+                </p>
+
+                <div class="hero-buttons">
+                    <a href="#properties" class="btn primary-btn">
+                        View Properties
+                    </a>
+
+                    <a href="login.html" class="btn secondary-btn">
+                        Get Started
+                    </a>
+                </div>
+
+            </div>
+
+            <div class="hero-image">
+                <img src="images/hero-house.jpg"
+                     alt="Modern residential property">
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- ================= STATISTICS ================= -->
+    <section class="statistics">
+
+        <div class="container stats-grid">
+
+            <div class="stat-card">
+                <h2>250+</h2>
+                <p>Properties</p>
+            </div>
+
+            <div class="stat-card">
+                <h2>500+</h2>
+                <p>Tenants</p>
+            </div>
+
+            <div class="stat-card">
+                <h2>180+</h2>
+                <p>Units</p>
+            </div>
+
+]            <div class="stat-card">
+                <h2>95%</h2>
+                <p>Requests Resolved</p>
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- ================= PROPERTIES ================= -->
+    <section id="properties" class="properties section">
+
+        <div class="container">
+
+            <div class="section-heading">
+                <p class="subtitle">OUR PROPERTIES</p>
+
+                <h2>Featured Properties</h2>
+
+                <p>
+                    Explore some of the properties managed through
+                    our platform.
+                </p>
+            </div>
+
+            <p id="properties-count" class="properties-count"></p>
+
+
+            <!--
+                Server-rendered by js/property-list.js from GET /api/properties.
+                The cards below are the no-JavaScript fallback and are replaced
+                once the live records arrive.
+            -->
+            <div class="property-grid" id="property-grid">
+
+                <!-- Property 1 -->
+                <article class="property-card" data-property-id="sunrise-residences">
+
+                    <div class="property-image">
+                        <img src="c:\Users\zeddy\Downloads\download (10).jpg"
+                             alt="Luxury apartment at Sunrise Residences"
+                             loading="lazy">
+                        <span class="property-image-count">📷 3 photos</span>
+                        <span class="property-image-availability">Available now</span>
+ ]                   </div>
+
+                    <div class="property-content">
+
+                        <span class="property-status">
+                            Available
+                        </span>
+
+                        <h3>Sunrise Residences <span class="property-type">Apartment</span></h3>
+
+                        <p class="location">
+                            📍 Nairobi, Kenya
+                        </p>
+
+                        <p class="property-description">
+                            Spacious contemporary apartments close to shopping,
+                            transport, schools, and everyday amenities.
+                        </p>
+
+                        <div class="property-details">
+                            <span>🛏 3 Beds</span>
+                            <span>🛁 2 Baths</span>
+                            <span>🚗 Parking</span>
+                        </div>
+
+                        <p class="property-owner">
+                            <span class="property-owner-icon">🏢</span>
+                            <span>Savannah Homes Ltd</span>
+                        </p>
+
+                        <p class="property-identifier">
+                            <span class="property-identifier-label">Property ID</span>
+                            <code>sunrise-residences</code>
+                        </p>
+
+                        <div class="property-footer">
+                            <strong>KSh 40,000/month</strong>
+
+                            <a href="property-details.html?id=sunrise-residences"
+                               class="btn small-btn">
+                                View Details
+                            </a>
+                        </div>
+
+                    </div>
+
+                </article>
+
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- ================= RECOMMENDATIONS ================= -->
+<section id="recommendations" class="recommendations section">
+
+    <div class="container">
+
+        <div class="section-heading">
+            <p class="subtitle">FIND YOUR HOME</p>
+            <h2>What are you looking for?</h2>
+            <p>
+                Tell us what you need and we will suggest the most suitable
+                apartments for you.
+            </p>
+        </div>
+
+        <form id="recommendation-form" class="recommendation-panel">
+            <div class="recommendation-form-heading">
+                <div>
+                    <h3>Get personalized suggestions</h3>
+                    <p>Choose a home type and an optional monthly budget.</p>
+                </div>
+
+                <span class="recommendation-spark" aria-hidden="true">✦</span>
+            </div>
+
+            <div class="recommendation-controls">
+                <div class="recommendation-field recommendation-need-field">
+                    <span class="field-label">I need a</span>
+
+                    <div class="recommendation-chips" role="group" aria-label="Choose a home type">
+                        <button type="button" class="recommendation-chip active"
+                                data-need="" aria-pressed="true">
+                            Any home
+                        </button>
+                        <button type="button" class="recommendation-chip"
+                                data-need="single-room" aria-pressed="false">
+                            Single room
+                        </button>
+                        <button type="button" class="recommendation-chip"
+                                data-need="bedsitter" aria-pressed="false">
+                            Bedsitter
+                        </button>
+                        <button type="button" class="recommendation-chip"
+                                data-need="1-bedroom" aria-pressed="false">
+                            1 bedroom
+                        </button>
+                        <button type="button" class="recommendation-chip"
+                                data-need="2-bedroom" aria-pressed="false">
+                            2 bedroom
+                        </button>
+                        <button type="button" class="recommendation-chip"
+                                data-need="3-bedroom" aria-pressed="false">
+                            3 bedroom
+                        </button>
+                        <button type="button" class="recommendation-chip"
+                                data-need="4-bedroom" aria-pressed="false">
+                            4 bedroom
+                        </button>
+                    </div>
+                </div>
+
+                <label class="recommendation-field" for="max-budget">
+                    <span class="field-label">Monthly budget</span>
+                    <select id="max-budget" name="maxBudget">
+                        <option value="">Any budget</option>
+                        <option value="15000">Up to KSh 15,000</option>
+                        <option value="30000">Up to KSh 30,000</option>
+                        <option value="45000">Up to KSh 45,000</option>
+                        <option value="60000">Up to KSh 60,000</option>
+                        <option value="70000">Up to KSh 70,000</option>
+                    </select>
+                </label>
+
+                <button type="submit" class="btn primary-btn recommendation-submit">
+                    Find my home
+                </button>
+            </div>
+        </form>
+
+        <div class="recommendation-results-heading">
+            <div>
+                <h3 id="recommendation-title">Recommended homes</h3>
+                <p id="recommendation-status" role="status" aria-live="polite">
+                    Loading suggestions…
+                </p>
+            </div>
+            <span id="recommendation-count" class="recommendation-count"></span>
+        </div>
+
+        <div id="recommendation-results" class="recommendation-grid"></div>
+
+        <div id="recommendation-empty" class="recommendation-empty" hidden>
+            <span aria-hidden="true">⌂</span>
+            <h3>No exact matches yet</h3>
+            <p>
+                Try a different home type or increase your monthly budget
+                to see more suggestions.
+            </p>
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- ================= FEATURES ================= -->
+    <section id="features" class="features section">
+
+        <div class="container">
+
+            <div class="section-heading">
+
+                <p class="subtitle">SYSTEM FEATURES</p>
+
+                <h2>Everything You Need</h2>
+
+                <p>
+                    Manage your properties and tenants efficiently
+                    using one platform.
+                </p>
+
+            </div>
+
+
+            <div class="features-grid">
+
+                <div class="feature-card">
+
+                    <div class="feature-icon">
+                        🏢
+                    </div>
+
+                    <h3>Property Management</h3>
+
+                    <p>
+                        Add, edit, delete and manage your properties
+                        and individual units.
+                    </p>
+
+                </div>
+
+
+                <div class="feature-card">
+
+                    <div class="feature-icon">
+                        👥
+                    </div>
+
+                    <h3>Tenant Management</h3>
+
+                    <p>
+                        Manage tenant information, assignments,
+                        leases and occupancy.
+                    </p>
+
+                </div>
+
+
+                <div class="feature-card">
+
+                    <div class="feature-icon">
+                        🔧
+                    </div>
+
+                    <h3>Maintenance Requests</h3>
+
+                    <p>
+                        Tenants can submit maintenance requests
+                        and track their progress.
+                    </p>
+
+                </div>
+
+
+                <div class="feature-card">
+
+                    <div class="feature-icon">
+                        📊
+                    </div>
+
+                    <h3>Reports & Analytics</h3>
+
+                    <p>
+                        View important property statistics and
+                        management reports.
+                    </p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- ================= ABOUT ================= -->
+    <section id="about" class="about section">
+
+        <div class="container about-content">
+
+            <div class="about-image">
+
+                <img src="images/about-property.jpg"
+                     alt="Property management">
+
+            </div>
+
+            <div class="about-text">
+
+                <p class="subtitle">ABOUT ESTATEPRO</p>
+
+                <h2>Property Management Made Easy</h2>
+
+                <p>
+                    EstatePro property management
+                    platform designed to simplify the management
+                    of residential and commercial properties.
+                </p>
+
+                <p>
+                    Property managers can manage tenants,
+                    properties and maintenance requests while
+                    tenants can easily communicate their needs
+                    through the system.
+                </p>
+
+                <a href="login.html?mode=register" class="btn primary-btn">
+                    Create Account
+                </a>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- ================= CALL TO ACTION ================= -->
+    <section class="cta">
+
+        <div class="container">
+
+            <h2>Ready to Simplify Property Management?</h2>
+
+            <p>
+                Join EstatePro and manage your properties
+                from one convenient platform.
+            </p>
+
+            <a href="login.html" class="btn cta-btn">
+                Get Started
+            </a>
+
+        </div>
+
+    </section>
+
+</main>
+
+
+<!-- ================= FOOTER ================= -->
+<footer id="contact" class="footer">
+
+    <div class="container footer-grid">
+
+        <div class="footer-column">
+
+            <h3>Estate<span>Pro</span></h3>
+
+            <p>
+                A modern property management platform designed
+                to simplify real estate management.
+            </p>
+
+        </div>
+
+
+        <div class="footer-column">
+
+            <h3>Quick Links</h3>
+
+            <ul>
+                <li><a href="#home">Home</a></li>
+                <li><a href="#properties">Properties</a></li>
+                <li><a href="tenant-payment.html">Pay rent</a></li>
+                <li><a href="admin-login.html">Landlord Dashboard</a></li>
+                <li><a href="#recommendations">Find a Home</a></li>
+                <li><a href="#features">Features</a></li>
+                <li><a href="#about">About</a></li>
+            </ul>
+
+        </div>
+
+
+        <div class="footer-column">
+
+            <h3>Services</h3>
+
+            <ul>
+                <li><a href="#">Property Management</a></li>
+                <li><a href="#">Tenant Management</a></li>
+                <li><a href="#">Maintenance</a></li>
+                <li><a href="#">Reports</a></li>
+            </ul>
+
+        </div>
+
+
+        <div class="footer-column">
+
+            <h3>Contact</h3>
+
+            <p>📍 Eldoret, Kenya</p>
+            <p>📞 +254 748784551</p>
+            <p>✉ info@estatepro.com</p>
+
+        </div>
+
+    </div>
+
+    <div class="footer-bottom">
+
+        <p>
+            &copy; 2026 EstatePro. All Rights Reserved.
+        </p>
+
+    </div>
+
+</footer>
+
+
+
+
+<!-- JavaScript -->
+<script src="js/property-fallback.js"></script>
+<script src="js/property-list.js"></script>
+<script src="js/recommendations.js"></script>
+<script src="js/script.js"></script>
+</body>
+</html>

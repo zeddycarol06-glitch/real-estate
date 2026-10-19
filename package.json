@@ -1,0 +1,16 @@
+{
+    "name": "estatepro",
+    "version": "1.0.0",
+    "private": true,
+    "description": "EstatePro property management website with a small Node.js API.",
+    "scripts": {
+        "start": "node server.js",
+        "admin:password": "node set-admin-password.js"
+    },
+    "dependencies": {
+        "dotenv": "^18.0.5",
+        "express": "^5.2.1",
+        "mongoose": "^9.10.3",
+        "multer": "^2.4.0"
+    }
+}
