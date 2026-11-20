@@ -48,6 +48,11 @@
                     </a>
                 </li>
                 <li>
+                    <a href="#expenses">
+                        <span aria-hidden="true">🧾</span> Expenses
+                    </a>
+                </li>
+                <li>
                     <a href="#property-photos">
                         <span aria-hidden="true">🏢</span> Properties
                     </a>
@@ -202,6 +207,97 @@
 
                 <div id="property-breakdown" class="property-breakdown"></div>
             </section>
+        </section>
+
+        <section id="reports" class="dashboard-section reports-section" aria-labelledby="reports-title">
+            <div class="section-header">
+                <div>
+                    <p class="dashboard-eyebrow">REPORTS</p>
+                    <h2 id="reports-title">Rent arrears report</h2>
+                    <p>
+                        Who still owes rent, how far behind each balance is, and how
+                        collection is tracking month by month.
+                    </p>
+                </div>
+                <div class="tenant-section-actions">
+                    <button id="export-arrears" type="button" class="tenant-button-secondary">
+                        <span aria-hidden="true">⇩</span> Export arrears CSV
+                    </button>
+                </div>
+            </div>
+
+            <div class="tenant-summary-grid arrears-summary-grid">
+                <div class="tenant-summary-tile">
+                    <span>Total outstanding</span>
+                    <strong id="arrears-total">KSh 0</strong>
+                </div>
+                <div class="tenant-summary-tile">
+                    <span>Tenants in arrears</span>
+                    <strong id="arrears-tenants">0</strong>
+                </div>
+                <div class="tenant-summary-tile">
+                    <span>Oldest balance</span>
+                    <strong id="arrears-oldest">—</strong>
+                </div>
+                <div class="tenant-summary-tile">
+                    <span>Properties affected</span>
+                    <strong id="arrears-properties">0</strong>
+                </div>
+            </div>
+
+            <p id="arrears-scope" class="arrears-scope">Outstanding balances across your whole portfolio.</p>
+
+            <div class="table-container payments-table-container" role="region" aria-label="Rent arrears by tenant" tabindex="0">
+                <table class="payments-table arrears-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Tenant</th>
+                            <th scope="col">Property &amp; unit</th>
+                            <th scope="col">Outstanding</th>
+                            <th scope="col">Oldest unpaid period</th>
+                            <th scope="col">Days overdue</th>
+                            <th scope="col">Age</th>
+                            <th scope="col">Last payment</th>
+                        </tr>
+                    </thead>
+                    <tbody id="arrears-body"></tbody>
+                </table>
+            </div>
+
+            <div id="arrears-empty" class="payments-empty" hidden>
+                <span aria-hidden="true">✅</span>
+                <h3>No rent is outstanding</h3>
+                <p>
+                    Every recorded rent period has been settled in full. A balance
+                    appears here as soon as a part payment is left owing.
+                </p>
+            </div>
+
+            <div class="reports-subsection">
+                <div class="section-header">
+                    <div>
+                        <h3>Monthly collection summary</h3>
+                        <p>The last twelve months of rent billed and collected across the portfolio.</p>
+                    </div>
+                </div>
+
+                <div class="table-container payments-table-container" role="region" aria-label="Monthly collection summary" tabindex="0">
+                    <table class="payments-table collection-summary-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Month</th>
+                                <th scope="col">Rent billed</th>
+                                <th scope="col">Collected</th>
+                                <th scope="col">Outstanding</th>
+                                <th scope="col">Collection rate</th>
+                            </tr>
+                        </thead>
+                        <tbody id="collection-summary-body"></tbody>
+                    </table>
+                </div>
+
+                <p id="collection-summary-empty" class="pending-payment-empty" hidden>No collection history is available yet.</p>
+            </div>
         </section>
 
         <section id="tenants" class="dashboard-section tenants-section" aria-labelledby="tenants-title">
@@ -396,6 +492,155 @@
                 <span aria-hidden="true">🔎</span>
                 <h3 id="payments-empty-title">No payments match these filters</h3>
                 <p id="payments-empty-text">Try a different property, period or payment status.</p>
+            </div>
+        </section>
+
+        <section id="expenses" class="dashboard-section expenses-section" aria-labelledby="expenses-title">
+            <div class="section-header">
+                <div>
+                    <p class="dashboard-eyebrow">MONEY OUT</p>
+                    <h2 id="expenses-title">Expenses &amp; net income</h2>
+                    <p>
+                        Record what you spend running each property, then see what is left
+                        once those costs are taken off the rent collected.
+                    </p>
+                </div>
+                <div class="tenant-section-actions">
+                    <button id="add-expense" type="button" class="tenant-button-primary">
+                        <span aria-hidden="true">＋</span> Add expense
+                    </button>
+                    <button id="export-expenses" type="button" class="tenant-button-secondary">
+                        <span aria-hidden="true">⇩</span> Export CSV
+                    </button>
+                </div>
+            </div>
+
+            <div class="dashboard-stats expense-stats" aria-label="Expense and net income summary">
+                <article class="dashboard-card payment-stat-card">
+                    <div class="card-icon payment-icon overdue" aria-hidden="true">🧾</div>
+                    <div>
+                        <p class="stat-label">Expenses this month</p>
+                        <h3 id="expense-month-total">KSh 0</h3>
+                        <p class="stat-trend" id="expense-month-note">No expenses recorded</p>
+                    </div>
+                </article>
+
+                <article class="dashboard-card payment-stat-card">
+                    <div class="card-icon payment-icon collected" aria-hidden="true">💰</div>
+                    <div>
+                        <p class="stat-label">Rent collected</p>
+                        <h3 id="expense-collected">KSh 0</h3>
+                        <p class="stat-trend" id="expense-collected-note">For the selected month</p>
+                    </div>
+                </article>
+
+                <article class="dashboard-card payment-stat-card">
+                    <div class="card-icon payment-icon revenue" aria-hidden="true">＝</div>
+                    <div>
+                        <p class="stat-label">Net income</p>
+                        <h3 id="expense-net">KSh 0</h3>
+                        <p class="stat-trend" id="expense-net-note">Collected less expenses</p>
+                    </div>
+                </article>
+
+                <article class="dashboard-card payment-stat-card">
+                    <div class="card-icon payment-icon outstanding" aria-hidden="true">📅</div>
+                    <div>
+                        <p class="stat-label">Expenses this year</p>
+                        <h3 id="expense-year-total">KSh 0</h3>
+                        <p class="stat-trend" id="expense-year-note">Year to date</p>
+                    </div>
+                </article>
+            </div>
+
+            <form id="expense-filters" class="payment-filters" role="search" aria-label="Expense filters">
+                <label class="dashboard-filter payment-search-filter" for="expense-search">
+                    <span>Search</span>
+                    <input id="expense-search" type="search" placeholder="Description, payee or property…">
+                </label>
+
+                <label class="dashboard-filter" for="expense-property-filter">
+                    <span>Property</span>
+                    <select id="expense-property-filter">
+                        <option value="">All properties</option>
+                    </select>
+                </label>
+
+                <label class="dashboard-filter" for="expense-category-filter">
+                    <span>Category</span>
+                    <select id="expense-category-filter">
+                        <option value="">All categories</option>
+                    </select>
+                </label>
+
+                <label class="dashboard-filter" for="expense-month-filter">
+                    <span>Month</span>
+                    <select id="expense-month-filter"></select>
+                </label>
+
+                <button id="reset-expense-filters" type="button" class="dashboard-reset-btn">Reset</button>
+            </form>
+
+            <div class="payment-table-meta">
+                <p id="expense-count" aria-live="polite">Loading expenses…</p>
+                <span>Net income is rent collected less expenses for the selected month.</span>
+            </div>
+
+            <div class="table-container payments-table-container" role="region" aria-label="Property expenses" tabindex="0">
+                <table class="payments-table expenses-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Date</th>
+                            <th scope="col">Property</th>
+                            <th scope="col">Category</th>
+                            <th scope="col">Description</th>
+                            <th scope="col">Payee</th>
+                            <th scope="col">Amount</th>
+                            <th scope="col"><span class="sr-only">Actions</span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="expenses-body"></tbody>
+                </table>
+            </div>
+
+            <div id="expenses-empty" class="payments-empty" hidden>
+                <span aria-hidden="true">🧾</span>
+                <h3 id="expenses-empty-title">No expenses recorded yet</h3>
+                <p id="expenses-empty-text">Add the money you spend on repairs, utilities and other running costs to see your net income.</p>
+            </div>
+
+            <div class="dashboard-grid expense-insights-grid">
+                <section class="dashboard-section expense-breakdown-panel">
+                    <div class="section-header">
+                        <div>
+                            <h3>Spending by category</h3>
+                            <p id="expense-breakdown-scope">For the selected month.</p>
+                        </div>
+                    </div>
+                    <div id="expense-breakdown" class="property-breakdown"></div>
+                </section>
+
+                <section class="dashboard-section expense-trend-panel">
+                    <div class="section-header">
+                        <div>
+                            <h3>Net income by month</h3>
+                            <p>Rent collected less expenses over the last six months.</p>
+                        </div>
+                    </div>
+                    <div class="table-container payments-table-container" role="region" aria-label="Net income by month" tabindex="0">
+                        <table class="payments-table expense-trend-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Month</th>
+                                    <th scope="col">Collected</th>
+                                    <th scope="col">Expenses</th>
+                                    <th scope="col">Net</th>
+                                </tr>
+                            </thead>
+                            <tbody id="expense-trend-body"></tbody>
+                        </table>
+                    </div>
+                </section>
             </div>
         </section>
 
@@ -732,9 +977,91 @@
 
 <div id="dashboard-toast" class="dashboard-toast" role="status" aria-live="polite" hidden></div>
 
+<dialog id="expense-dialog" class="payment-dialog tenant-dialog" aria-labelledby="expense-dialog-title">
+    <div class="payment-dialog-header">
+        <div>
+            <p class="dashboard-eyebrow">EXPENSE DETAILS</p>
+            <h2 id="expense-dialog-title">Add an expense</h2>
+        </div>
+        <button id="close-expense-dialog" type="button" class="dialog-close" aria-label="Close expense details">×</button>
+    </div>
+
+    <form id="expense-form" class="tenant-form" novalidate>
+        <input id="expense-id" type="hidden">
+
+        <p id="expense-form-error" class="tenant-form-error" role="alert" hidden></p>
+
+        <div class="tenant-form-grid">
+            <label class="tenant-field" for="expense-property">
+                <span>Property</span>
+                <select id="expense-property" name="propertyId" required></select>
+            </label>
+
+            <label class="tenant-field" for="expense-category">
+                <span>Category</span>
+                <select id="expense-category" name="category"></select>
+            </label>
+
+            <label class="tenant-field tenant-field-wide" for="expense-description">
+                <span>What was it for?</span>
+                <input id="expense-description" name="description" type="text" maxlength="200" autocomplete="off" placeholder="e.g. Replace burst kitchen pipe" required>
+            </label>
+
+            <label class="tenant-field" for="expense-vendor">
+                <span>Payee or supplier</span>
+                <input id="expense-vendor" name="vendor" type="text" maxlength="120" autocomplete="off" placeholder="e.g. Mwangi Plumbing">
+            </label>
+
+            <label class="tenant-field" for="expense-amount">
+                <span>Amount (KSh)</span>
+                <input id="expense-amount" name="amount" type="number" min="1" step="1" required>
+            </label>
+
+            <label class="tenant-field" for="expense-date">
+                <span>Date spent</span>
+                <input id="expense-date" name="expenseDate" type="date" required>
+            </label>
+
+            <label class="tenant-field" for="expense-method">
+                <span>Paid with</span>
+                <select id="expense-method" name="method"></select>
+            </label>
+
+            <label class="tenant-field tenant-field-wide" for="expense-notes">
+                <span>Notes</span>
+                <textarea id="expense-notes" name="notes" rows="2" maxlength="2000" placeholder="Anything worth remembering about this expense"></textarea>
+            </label>
+        </div>
+
+        <div class="tenant-form-actions">
+            <button id="cancel-expense" type="button" class="tenant-button-secondary">Cancel</button>
+            <button id="save-expense" type="submit" class="tenant-button-primary">Save expense</button>
+        </div>
+    </form>
+</dialog>
+
+<dialog id="expense-delete-dialog" class="payment-dialog tenant-dialog tenant-dialog-narrow" aria-labelledby="expense-delete-title">
+    <div class="payment-dialog-header">
+        <div>
+            <p class="dashboard-eyebrow">CONFIRM REMOVAL</p>
+            <h2 id="expense-delete-title">Remove expense</h2>
+        </div>
+        <button id="close-expense-delete" type="button" class="dialog-close" aria-label="Close remove confirmation">×</button>
+    </div>
+    <div class="payment-dialog-content">
+        <p id="expense-delete-message">This removes the expense from your records.</p>
+        <p class="tenant-delete-note">Your net income figures update straight away.</p>
+    </div>
+    <div class="tenant-form-actions">
+        <button id="cancel-expense-delete" type="button" class="tenant-button-secondary">Keep expense</button>
+        <button id="confirm-expense-delete" type="button" class="tenant-button-danger">Remove expense</button>
+    </div>
+</dialog>
+
 <script src="js/dashboard.js"></script>
 <script src="js/property-images.js"></script>
 <script src="js/tenant-admin.js"></script>
 <script src="js/maintenance-admin.js"></script>
+<script src="js/expenses-admin.js"></script>
 </body>
 </html>

@@ -29,9 +29,78 @@
             <p class="subtitle">TENANT PAYMENTS</p>
             <h1>Submit your rent payment.</h1>
             <p>
-                Request a Safaricom M-Pesa STK Push and keep the rent ledger updated
-                only after Safaricom confirms the payment.
+                See your rent bill first, then pay the whole balance or any part of it.
+                Send money to the Pochi la Biashara number with M-Pesa and record the
+                confirmation code here, or request an STK Push where Safaricom is configured.
+                Rent is only recorded once the payment is verified.
             </p>
+        </section>
+
+        <section id="rent-bill-shell" class="rent-bill-shell" aria-live="polite">
+            <div id="rent-bill-empty" class="rent-bill-empty">
+                <span aria-hidden="true">🧾</span>
+                <div>
+                    <h2>Your rent bill appears here</h2>
+                    <p id="rent-bill-empty-note">
+                        Choose a home below, then enter your unit, email address and rent period.
+                        We will work out the rent, anything already received and the balance due.
+                    </p>
+                </div>
+            </div>
+
+            <article id="rent-bill-card" class="bill-card" hidden>
+                <header class="bill-card-header">
+                    <div>
+                        <p class="subtitle">ESTATEPRO · RENT BILL</p>
+                        <h2>Rent invoice <span id="bill-number">—</span></h2>
+                    </div>
+                    <span id="bill-status" class="bill-status">Unpaid</span>
+                </header>
+
+                <div class="bill-parties">
+                    <div>
+                        <p class="bill-label">BILL TO</p>
+                        <p id="bill-tenant-name">—</p>
+                        <p id="bill-tenant-email">—</p>
+                    </div>
+                    <div>
+                        <p class="bill-label">PROPERTY</p>
+                        <p id="bill-property">—</p>
+                        <p id="bill-location">—</p>
+                        <p id="bill-unit">—</p>
+                    </div>
+                    <div>
+                        <p class="bill-label">RENT PERIOD</p>
+                        <p id="bill-period">—</p>
+                        <p id="bill-issued">Issued —</p>
+                        <p id="bill-due">Due —</p>
+                    </div>
+                </div>
+
+                <table class="bill-items">
+                    <thead>
+                        <tr>
+                            <th scope="col">Description</th>
+                            <th scope="col">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bill-items-body"></tbody>
+                </table>
+
+                <div class="bill-total">
+                    <div>
+                        <p class="bill-label">AMOUNT DUE NOW</p>
+                        <p id="bill-balance-note">—</p>
+                    </div>
+                    <strong id="bill-balance">KSh 0</strong>
+                </div>
+
+                <div class="bill-actions">
+                    <button id="bill-pay-button" type="button" class="btn primary-btn">Pay this bill →</button>
+                    <button id="bill-print-button" type="button" class="btn dashboard-outline-btn">Print bill</button>
+                    <p id="bill-message" role="status" aria-live="polite"></p>
+                </div>
+            </article>
         </section>
 
         <section id="payment-form-shell" class="payment-form-shell">
@@ -44,9 +113,22 @@
                     <span class="payment-step-badge">1 of 1</span>
                 </div>
 
-                <p class="payment-form-intro">
-                    Enter the M-Pesa number that should receive the payment prompt.
-                    The amount is sent to the configured Safaricom business shortcode.
+                <div class="payment-payto" id="payment-payto">
+                    <div class="payment-payto-main">
+                        <p class="payment-payto-label">Rent is received on this Pochi la Biashara number</p>
+                        <p class="payment-payto-number" id="payment-payto-number">0796488109</p>
+                    </div>
+                    <p class="payment-payto-note">
+                        Send any amount to this <strong>Pochi la Biashara</strong> number with M-Pesa,
+                        then enter the confirmation code below. Your landlord verifies it and the
+                        rent bill updates — so you can pay bit by bit until the balance is clear.
+                    </p>
+                </div>
+
+                <p id="payment-form-intro" class="payment-form-intro">
+                    Enter the Safaricom number you sent the money from, the amount, and the
+                    M-Pesa confirmation code. Your landlord will verify the code against the
+                    M-Pesa statement before the rent is recorded.
                 </p>
 
                 <p id="payment-error" class="payment-message payment-error" role="alert" hidden></p>
@@ -72,7 +154,7 @@
                         <div class="payment-field">
                             <label for="payment-phone">M-Pesa phone number <span aria-hidden="true">*</span></label>
                             <input id="payment-phone" name="phoneNumber" type="tel" autocomplete="tel" inputmode="tel" pattern="(?:0[17][0-9]{8}|\+?254[17][0-9]{8})" placeholder="0712345678" required>
-                            <small>Enter the Safaricom number that should receive the STK Push.</small>
+                            <small id="payment-phone-help">Enter the Safaricom number you sent the money from.</small>
                         </div>
 
                         <div class="payment-field">
@@ -95,25 +177,32 @@
                         <div class="payment-field">
                             <label for="payment-amount">Amount sent (KSh) <span aria-hidden="true">*</span></label>
                             <input id="payment-amount" name="amount" type="number" min="1" step="1" inputmode="numeric" placeholder="0" required>
-                            <small>You can make a partial payment up to the monthly rent.</small>
+                            <small>The bill above sets the balance. You can pay any amount up to that balance.</small>
                         </div>
 
                         <div class="payment-field">
                             <label for="payment-method">Payment method <span aria-hidden="true">*</span></label>
                             <select id="payment-method" name="method" required>
+                                <option value="Pochi la Biashara">Pochi la Biashara (I already sent it)</option>
                                 <option value="M-Pesa STK Push">M-Pesa STK Push</option>
                             </select>
+                        </div>
+
+                        <div id="pochi-reference-field" class="payment-field">
+                            <label for="pochi-reference">M-Pesa confirmation code <span aria-hidden="true">*</span></label>
+                            <input id="pochi-reference" name="reference" type="text" autocomplete="off" inputmode="text" maxlength="20" placeholder="e.g. SJL4K9ZQ2M" pattern="[A-Za-z0-9]{4,20}">
+                            <small>Find this in the M-Pesa message you received after sending money to the Pochi number above.</small>
                         </div>
 
                     </div>
 
                     <div class="payment-form-footer">
-                        <p>
+                        <p id="payment-footer-note">
                             <span aria-hidden="true">🔒</span>
-                            Approve the Safaricom STK prompt with your M-Pesa PIN. Rent is recorded only after the provider confirms success.
+                            Your landlord verifies the M-Pesa code before rent is recorded. You can send the balance in several parts.
                         </p>
                         <button id="submit-payment" type="submit" class="btn primary-btn">
-                            Send STK Push <span aria-hidden="true">→</span>
+                            Submit Pochi payment <span aria-hidden="true">→</span>
                         </button>
                     </div>
                 </form>
@@ -121,21 +210,21 @@
 
             <aside class="payment-info-card">
                 <span class="payment-info-icon" aria-hidden="true">✓</span>
-                <h2>Pay with Safaricom M-Pesa</h2>
+                <h2>Pay bit by bit with M-Pesa</h2>
                 <ol>
-                    <li>Enter a Safaricom number and select the rent amount.</li>
-                    <li>Tap <strong>Send STK Push</strong> and approve the prompt on your phone.</li>
-                    <li>EstatePro records rent only after the Safaricom callback confirms the amount, phone, and M-Pesa receipt.</li>
+                    <li>Send any amount — the whole bill or just part of it — to the <strong>Pochi la Biashara</strong> number above.</li>
+                    <li>Enter the M-Pesa confirmation code from the message you receive, along with the amount and rent period.</li>
+                    <li>Your landlord verifies the code. Each verified part is recorded, and the bill shows what is still owing.</li>
                 </ol>
                 <p class="payment-info-note">
-                    A request or phone prompt is not a payment receipt. Safaricom may still handle disputes or reversals under its terms.
+                    A code you submit is not a receipt until the landlord verifies it. Where STK Push is configured, you can instead request a prompt and approve it with your M-Pesa PIN.
                 </p>
             </aside>
         </section>
 
         <section id="payment-pending-shell" class="receipt-shell" aria-live="polite" hidden>
-            <div class="receipt-success-banner payment-pending-banner">
-                <span class="receipt-success-icon" aria-hidden="true">…</span>
+            <div id="pending-banner" class="receipt-success-banner payment-pending-banner">
+                <span id="pending-banner-icon" class="receipt-success-icon" aria-hidden="true">…</span>
                 <div>
                     <strong id="pending-payment-title">STK Push sent</strong>
                     <p id="pending-payment-message">Check your phone and enter your M-Pesa PIN. Rent is not marked paid until Safaricom confirms the transaction.</p>
@@ -149,15 +238,59 @@
                     </div>
                 </header>
                 <dl class="receipt-details">
-                    <div><dt>Business shortcode</dt><dd id="pending-business-number">174379</dd></div>
-                    <div><dt>STK request</dt><dd id="pending-request-id">—</dd></div>
+                    <div><dt>M-Pesa number used</dt><dd id="pending-payer-number">—</dd></div>
+                    <div><dt>Rent paid to</dt><dd id="pending-paid-to">—</dd></div>
                     <div><dt>Amount requested</dt><dd id="pending-request-amount">—</dd></div>
                     <div><dt>Safaricom receipt</dt><dd id="pending-receipt-number">Not received yet</dd></div>
                     <div><dt>Status</dt><dd id="pending-payment-state">Waiting for M-Pesa approval</dd></div>
+                    <div><dt>Business shortcode</dt><dd id="pending-business-number">174379</dd></div>
+                    <div><dt>STK request</dt><dd id="pending-request-id">—</dd></div>
+                </dl>
+            </article>
+
+            <!-- Revealed only once Safaricom confirms the rent has been received. -->
+            <div id="pending-receipt-actions" class="receipt-actions" hidden>
+                <button id="print-receipt" type="button" class="btn primary-btn">
+                    Print receipt
+                </button>
+                <button id="download-receipt" type="button" class="btn dashboard-outline-btn">
+                    Download receipt
+                </button>
+            </div>
+
+            <div class="receipt-actions">
+                <button id="new-payment-request" type="button" class="btn dashboard-outline-btn">Start another payment</button>
+                <a href="tenant-login.html" class="btn dashboard-outline-btn">View my payments</a>
+            </div>
+        </section>
+
+        <section id="pochi-claim-shell" class="receipt-shell" aria-live="polite" hidden>
+            <div class="receipt-success-banner">
+                <span class="receipt-success-icon" aria-hidden="true">✓</span>
+                <div>
+                    <strong id="pochi-claim-title">Pochi payment submitted</strong>
+                    <p id="pochi-claim-message">Your landlord will verify the M-Pesa code before this payment is added to your rent bill.</p>
+                </div>
+            </div>
+            <article class="receipt-card">
+                <header class="receipt-card-header">
+                    <div>
+                        <p class="subtitle">POCHI LA BIASHARA</p>
+                        <h2 id="pochi-claim-heading">Waiting for landlord verification</h2>
+                    </div>
+                </header>
+                <dl class="receipt-details">
+                    <div><dt>Amount sent</dt><dd id="pochi-claim-amount">—</dd></div>
+                    <div><dt>M-Pesa confirmation code</dt><dd id="pochi-claim-reference">—</dd></div>
+                    <div><dt>Paid to</dt><dd id="pochi-claim-paid-to">—</dd></div>
+                    <div><dt>M-Pesa number used</dt><dd id="pochi-claim-payer">—</dd></div>
+                    <div><dt>Rent period</dt><dd id="pochi-claim-period">—</dd></div>
+                    <div><dt>Status</dt><dd id="pochi-claim-state">Awaiting verification</dd></div>
+                    <div><dt>Balance left on this bill</dt><dd id="pochi-claim-balance">—</dd></div>
                 </dl>
             </article>
             <div class="receipt-actions">
-                <button id="new-payment-request" type="button" class="btn dashboard-outline-btn">Start another payment</button>
+                <button id="pochi-pay-another" type="button" class="btn primary-btn">Pay another part</button>
                 <a href="tenant-login.html" class="btn dashboard-outline-btn">View my payments</a>
             </div>
         </section>
@@ -171,6 +304,39 @@
     </div>
 </footer>
 
+<dialog id="payment-confirmation-dialog" class="payment-dialog payment-confirmation-dialog" aria-labelledby="payment-confirmation-title">
+    <header class="payment-dialog-header">
+        <div>
+            <p class="subtitle">PAYMENT RECEIVED</p>
+            <h2 id="payment-confirmation-title">Rent payment confirmed</h2>
+        </div>
+        <button id="close-payment-confirmation" type="button" class="dialog-close" aria-label="Close confirmation">×</button>
+    </header>
+    <div class="payment-dialog-content">
+        <div class="receipt-success-banner">
+            <span class="receipt-success-icon" aria-hidden="true">✓</span>
+            <div>
+                <strong id="confirmation-heading">Safaricom confirmed your payment</strong>
+                <p id="confirmation-message">Your rent payment has been received and recorded.</p>
+            </div>
+        </div>
+        <dl class="receipt-details">
+            <div><dt>Amount received</dt><dd id="confirmation-amount">—</dd></div>
+            <div><dt>M-Pesa number used</dt><dd id="confirmation-payer-number">—</dd></div>
+            <div><dt>Rent paid to</dt><dd id="confirmation-paid-to">—</dd></div>
+            <div><dt>Safaricom receipt</dt><dd id="confirmation-receipt-number">—</dd></div>
+            <div><dt>Rent period</dt><dd id="confirmation-period">—</dd></div>
+        </dl>
+        <div class="receipt-actions">
+            <button id="confirmation-print-receipt" type="button" class="btn primary-btn">Print receipt</button>
+            <button id="confirmation-close" type="button" class="btn dashboard-outline-btn">Done</button>
+        </div>
+    </div>
+</dialog>
+
+<div id="receipt-print-area" class="payment-receipt-print" aria-hidden="true"></div>
+
+<script src="js/rent-receipt.js"></script>
 <script src="js/tenant-payment.js"></script>
 </body>
 </html>

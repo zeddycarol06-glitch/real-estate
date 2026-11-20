@@ -46,6 +46,16 @@
         paymentsEmptyText: document.querySelector('#payments-empty-text'),
         refreshPayments: document.querySelector('#refresh-payments'),
         exportPayments: document.querySelector('#export-payments'),
+        exportArrears: document.querySelector('#export-arrears'),
+        arrearsTotal: document.querySelector('#arrears-total'),
+        arrearsTenants: document.querySelector('#arrears-tenants'),
+        arrearsOldest: document.querySelector('#arrears-oldest'),
+        arrearsProperties: document.querySelector('#arrears-properties'),
+        arrearsScope: document.querySelector('#arrears-scope'),
+        arrearsBody: document.querySelector('#arrears-body'),
+        arrearsEmpty: document.querySelector('#arrears-empty'),
+        collectionSummaryBody: document.querySelector('#collection-summary-body'),
+        collectionSummaryEmpty: document.querySelector('#collection-summary-empty'),
         pendingPaymentCount: document.querySelector('#pending-payment-count'),
         pendingPaymentsBody: document.querySelector('#pending-payments-body'),
         pendingPaymentsEmpty: document.querySelector('#pending-payments-empty'),
@@ -158,6 +168,18 @@
         return element;
     };
 
+    /* Spreadsheet apps treat a leading =, +, - or @ as a formula, so those are
+       prefixed with an apostrophe before the value is quoted. */
+    const escapeCsv = (value) => {
+        let text = String(value ?? '');
+
+        if (/^[=+\-@]/.test(text)) {
+            text = `'${text}`;
+        }
+
+        return `"${text.replaceAll('"', '""')}"`;
+    };
+
     const getPaymentAmount = (payment) => Math.max(0, Number(payment.amount) || 0);
     const getPaidAmount = (payment) => Math.max(0, Number(payment.paidAmount) || 0);
 
@@ -193,19 +215,33 @@
         paymentList.forEach((payment) => {
             const key = rentPeriodKeyOf(payment);
             const group = groups.get(key) || {
+                key,
                 label: payment.period,
                 monthKey: payment.monthKey || '',
+                dueDate: payment.dueDate || '',
                 propertyId: payment.propertyId,
                 propertyName: payment.propertyName,
                 location: payment.location,
                 unit: payment.unit,
+                tenantId: payment.tenantId || '',
+                tenantName: payment.tenantName || '',
+                tenantEmail: payment.tenantEmail || '',
+                tenantPhone: payment.payerPhone || payment.tenantPhone || '',
                 rent: getPaymentAmount(payment),
                 paid: 0,
+                lastPaidOn: '',
                 overdue: false
             };
 
             group.paid += getPaidAmount(payment);
             group.overdue = group.overdue || payment.status === 'Overdue';
+
+            /* The most recent payment against the period is what the arrears
+               report shows as the tenant's last payment. */
+            if (payment.paidOn && (!group.lastPaidOn || String(payment.paidOn) > String(group.lastPaidOn))) {
+                group.lastPaidOn = payment.paidOn;
+            }
+
             groups.set(key, group);
         });
 
@@ -456,6 +492,256 @@
         });
     };
 
+    /* ---- reports: rent arrears and monthly collection ------------------- */
+
+    /* Age buckets are measured from the day a rent period fell due. Anything
+       not yet past its due date sits in "Not yet due" and everything else is
+       grouped into 30-day bands, the usual way arrears are aged. */
+    const ARREARS_BUCKETS = [
+        { key: 'current', label: 'Not yet due', min: Number.NEGATIVE_INFINITY, max: 0 },
+        { key: 'd1_30', label: '1–30 days', min: 1, max: 30 },
+        { key: 'd31_60', label: '31–60 days', min: 31, max: 60 },
+        { key: 'd61_90', label: '61–90 days', min: 61, max: 90 },
+        { key: 'd90', label: '90+ days', min: 91, max: Number.POSITIVE_INFINITY }
+    ];
+
+    const bucketForDays = (days) => ARREARS_BUCKETS
+        .find((bucket) => days >= bucket.min && days <= bucket.max) || ARREARS_BUCKETS[0];
+
+    const daysOverdue = (dueDate) => {
+        if (!dueDate) {
+            return 0;
+        }
+
+        const due = new Date(`${String(dueDate).slice(0, 10)}T00:00:00`);
+
+        if (Number.isNaN(due.getTime())) {
+            return 0;
+        }
+
+        const today = new Date();
+
+        today.setHours(0, 0, 0, 0);
+        return Math.max(0, Math.floor((today.getTime() - due.getTime()) / 86400000));
+    };
+
+    /* Arrears are always measured across every unpaid rent period, so the
+       period filter is deliberately ignored here; only the property filter
+       narrows the report. */
+    const buildArrears = () => {
+        const scoped = state.payments.filter(
+            (payment) => !state.filters.property || payment.propertyId === state.filters.property
+        );
+        const byTenant = new Map();
+
+        groupByRentPeriod(scoped).forEach((group) => {
+            if (group.outstanding <= 0) {
+                return;
+            }
+
+            const key = group.tenantId || group.tenantEmail || `${group.propertyId}|${group.unit}`;
+            const entry = byTenant.get(key) || {
+                tenantName: group.tenantName || 'Unlinked payment',
+                tenantEmail: group.tenantEmail,
+                tenantPhone: group.tenantPhone,
+                propertyName: group.propertyName,
+                location: group.location,
+                unit: group.unit,
+                outstanding: 0,
+                periods: [],
+                lastPaidOn: ''
+            };
+
+            entry.outstanding += group.outstanding;
+            entry.periods.push(group);
+
+            if (group.lastPaidOn && (!entry.lastPaidOn || String(group.lastPaidOn) > String(entry.lastPaidOn))) {
+                entry.lastPaidOn = group.lastPaidOn;
+            }
+
+            byTenant.set(key, entry);
+        });
+
+        return [...byTenant.values()]
+            .map((entry) => {
+                const oldest = entry.periods
+                    .slice()
+                    .sort((first, second) => String(first.dueDate || first.monthKey)
+                        .localeCompare(String(second.dueDate || second.monthKey)))[0];
+                const overdueDays = daysOverdue(oldest?.dueDate);
+
+                return {
+                    ...entry,
+                    oldestPeriod: oldest?.label || '—',
+                    oldestDueDate: oldest?.dueDate || '',
+                    overdueDays,
+                    bucket: bucketForDays(overdueDays)
+                };
+            })
+            .sort((first, second) => second.outstanding - first.outstanding || second.overdueDays - first.overdueDays);
+    };
+
+    const buildMonthlySummary = () => {
+        const months = new Map();
+
+        groupByRentPeriod(state.payments).forEach((group) => {
+            const key = group.monthKey || group.label;
+            const entry = months.get(key) || { label: group.label, monthKey: key, billed: 0, collected: 0 };
+
+            entry.billed += group.rent;
+            entry.collected += group.paid;
+            months.set(key, entry);
+        });
+
+        return [...months.values()]
+            .sort((first, second) => String(second.monthKey).localeCompare(String(first.monthKey)))
+            .slice(0, 12)
+            .map((entry) => ({
+                ...entry,
+                outstanding: Math.max(0, entry.billed - entry.collected),
+                rate: entry.billed ? Math.round((entry.collected / entry.billed) * 100) : 0
+            }));
+    };
+
+    const renderArrears = (rows) => {
+        const total = rows.reduce((sum, row) => sum + row.outstanding, 0);
+        const oldest = rows.reduce((max, row) => Math.max(max, row.overdueDays), 0);
+        const properties = new Set(rows.map((row) => row.propertyName)).size;
+        const scopeName = state.filters.property
+            ? (state.payments.find((payment) => payment.propertyId === state.filters.property)?.propertyName || 'the selected property')
+            : 'your whole portfolio';
+
+        elements.arrearsScope.textContent = `Outstanding balances across ${scopeName}.`;
+        elements.arrearsTotal.textContent = formatCurrency(total);
+        elements.arrearsTenants.textContent = numberFormatter.format(rows.length);
+        elements.arrearsOldest.textContent = oldest ? `${numberFormatter.format(oldest)} days` : '—';
+        elements.arrearsProperties.textContent = numberFormatter.format(properties);
+        elements.arrearsEmpty.hidden = rows.length > 0;
+        elements.arrearsBody.replaceChildren();
+
+        rows.forEach((row) => {
+            const tr = document.createElement('tr');
+
+            const tenantCell = document.createElement('td');
+            const tenantWrap = createElement('div', 'tenant-cell');
+            tenantWrap.append(
+                createElement('strong', '', row.tenantName),
+                createElement('small', '', row.tenantEmail || 'Email not recorded')
+            );
+            tenantCell.appendChild(tenantWrap);
+
+            const propertyCell = document.createElement('td');
+            const propertyWrap = createElement('div', 'property-cell');
+            propertyWrap.append(
+                createElement('strong', '', row.propertyName || '—'),
+                createElement('small', '', `Unit ${row.unit || '—'} · ${row.location || 'Location not recorded'}`)
+            );
+            propertyCell.appendChild(propertyWrap);
+
+            const outstandingCell = createElement('td', 'amount-cell');
+            outstandingCell.append(
+                createElement('span', '', formatCurrency(row.outstanding)),
+                createElement('small', 'amount-detail', `${row.periods.length} unpaid period${row.periods.length === 1 ? '' : 's'}`)
+            );
+
+            const oldestCell = document.createElement('td');
+            const oldestWrap = createElement('div', 'period-cell');
+            oldestWrap.append(
+                createElement('span', '', row.oldestPeriod),
+                createElement('small', '', row.oldestDueDate ? `Due ${formatDate(row.oldestDueDate)}` : 'Due date not recorded')
+            );
+            oldestCell.appendChild(oldestWrap);
+
+            const daysCell = createElement(
+                'td',
+                'amount-cell',
+                row.overdueDays ? `${numberFormatter.format(row.overdueDays)} days` : 'Not overdue'
+            );
+
+            const bucketCell = document.createElement('td');
+            bucketCell.appendChild(createElement('span', `arrears-bucket arrears-bucket-${row.bucket.key}`, row.bucket.label));
+
+            const lastPaidCell = createElement('td', '', row.lastPaidOn ? formatDate(row.lastPaidOn) : 'No payment');
+
+            tr.append(tenantCell, propertyCell, outstandingCell, oldestCell, daysCell, bucketCell, lastPaidCell);
+            elements.arrearsBody.appendChild(tr);
+        });
+    };
+
+    const renderMonthlySummary = () => {
+        if (!elements.collectionSummaryBody) {
+            return;
+        }
+
+        const months = buildMonthlySummary();
+
+        elements.collectionSummaryBody.replaceChildren();
+        elements.collectionSummaryEmpty.hidden = months.length > 0;
+
+        months.forEach((month) => {
+            const tr = document.createElement('tr');
+
+            tr.append(
+                createElement('td', '', month.label),
+                createElement('td', 'amount-cell', formatCurrency(month.billed)),
+                createElement('td', 'amount-cell', formatCurrency(month.collected)),
+                createElement('td', 'amount-cell', formatCurrency(month.outstanding)),
+                createElement('td', 'amount-cell', `${month.rate}%`)
+            );
+            elements.collectionSummaryBody.appendChild(tr);
+        });
+    };
+
+    const renderReports = () => {
+        if (!elements.arrearsBody) {
+            return;
+        }
+
+        renderArrears(buildArrears());
+        renderMonthlySummary();
+    };
+
+    const exportArrearsCsv = () => {
+        const rows = buildArrears();
+
+        if (!rows.length) {
+            showToast('There are no outstanding balances to export.');
+            return;
+        }
+
+        const headers = [
+            'Tenant', 'Email', 'Phone', 'Property', 'Unit', 'Outstanding',
+            'Unpaid periods', 'Oldest unpaid period', 'Oldest due date',
+            'Days overdue', 'Age bucket', 'Last payment'
+        ];
+        const lines = rows.map((row) => [
+            row.tenantName,
+            row.tenantEmail,
+            row.tenantPhone,
+            row.propertyName,
+            row.unit,
+            row.outstanding,
+            row.periods.length,
+            row.oldestPeriod,
+            row.oldestDueDate,
+            row.overdueDays,
+            row.bucket.label,
+            row.lastPaidOn || ''
+        ]);
+        const csv = [headers, ...lines].map((line) => line.map(escapeCsv).join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+
+        link.href = url;
+        link.download = `estatepro-arrears-${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+        showToast(`${rows.length} tenant${rows.length === 1 ? '' : 's'} with outstanding rent exported.`);
+    };
+
     const createPaymentIdCell = (payment) => {
         const cell = document.createElement('td');
         const wrapper = createElement('div', 'payment-id-cell');
@@ -587,6 +873,21 @@
             });
     };
 
+    /* Asks the server to check the request's outcome with Safaricom directly,
+       which settles payments whose callback was lost on the way back. */
+    const createSafaricomCheckButton = (request) => {
+        const check = createElement('button', 'table-action pending-payment-check', 'Check with Safaricom');
+
+        check.type = 'button';
+        check.dataset.requestId = request.id;
+        check.dataset.requestAction = 'check';
+        check.setAttribute(
+            'aria-label',
+            `Ask Safaricom for the outcome of ${request.tenantName}'s M-Pesa request ${request.checkoutRequestId}`
+        );
+        return check;
+    };
+
     const renderPendingPaymentRequests = () => {
         const requests = state.pendingPaymentRequests;
         elements.pendingPaymentCount.textContent = `${requests.length} awaiting verification`;
@@ -629,7 +930,13 @@
                     createElement('strong', '', 'Needs reconciliation'),
                     createElement('small', '', request.failureReason || 'Check the Safaricom transaction before recording rent.')
                 );
+                if (request.method === 'M-Pesa STK Push' && request.checkoutRequestId) {
+                    actions.append(createSafaricomCheckButton(request));
+                }
             } else {
+                if (request.method === 'M-Pesa STK Push' && request.checkoutRequestId) {
+                    actions.append(createSafaricomCheckButton(request));
+                }
                 const confirm = createElement('button', 'table-action pending-payment-confirm', 'Confirm');
                 const reject = createElement('button', 'table-action pending-payment-reject', 'Reject');
                 confirm.type = 'button';
@@ -651,6 +958,7 @@
         renderSummary();
         renderChart();
         renderPropertyBreakdown();
+        renderReports();
         renderPayments();
         renderPendingPaymentRequests();
 
@@ -735,15 +1043,6 @@
             return;
         }
 
-        const escapeCsv = (value) => {
-            let text = String(value ?? '');
-
-            if (/^[=+\-@]/.test(text)) {
-                text = `'${text}`;
-            }
-
-            return `"${text.replaceAll('"', '""')}"`;
-        };
         /* The full ledger is used for balances so filtering the export can never
            hide a part payment and understate what is still owed. */
         const periodGroups = groupByRentPeriod(state.payments);
@@ -788,6 +1087,7 @@
         renderSummary();
         renderChart();
         renderPropertyBreakdown();
+        renderReports();
         renderPayments();
     };
 
@@ -900,6 +1200,7 @@
     elements.resetFilters.addEventListener('click', resetFilters);
     elements.refreshPayments.addEventListener('click', refreshPaymentLedger);
     elements.exportPayments.addEventListener('click', exportCsv);
+    elements.exportArrears.addEventListener('click', exportArrearsCsv);
 
     elements.paymentsBody.addEventListener('click', (event) => {
         const action = event.target.closest('[data-payment-id]');
@@ -929,8 +1230,13 @@
         const action = button.dataset.requestAction;
         const confirmMessage = action === 'confirm'
             ? `Have you verified M-Pesa code ${request.reference} in Safaricom's transaction history and confirmed KSh ${numberFormatter.format(request.requestedAmount)} was received?`
-            : `Reject payment request ${request.reference} from ${request.tenantName}?`;
-        if (!window.confirm(confirmMessage)) {
+            : action === 'reject'
+                ? `Reject payment request ${request.reference} from ${request.tenantName}?`
+                : '';
+
+        /* Checking with Safaricom only reads the transaction's outcome, so it
+           needs no confirmation before it runs. */
+        if (confirmMessage && !window.confirm(confirmMessage)) {
             return;
         }
 
@@ -953,7 +1259,9 @@
             await loadPayments();
             showToast(action === 'confirm'
                 ? 'Verified payment recorded in the rent ledger.'
-                : 'Payment request rejected.');
+                : action === 'reject'
+                    ? 'Payment request rejected.'
+                    : (result.message || 'Safaricom was asked for the payment outcome.'));
         } catch (error) {
             showToast(error.message || 'The payment request could not be updated.');
             button.disabled = false;

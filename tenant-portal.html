@@ -147,6 +147,15 @@
                                 </div>
                                 <a href="#property" class="btn dashboard-outline-btn">Full details</a>
                             </div>
+
+                            <div id="dashboard-property-gallery" class="dashboard-property-gallery" hidden>
+                                <button type="button" id="dashboard-property-photo-button" class="dashboard-property-photo" aria-label="View photos of your home">
+                                    <img id="dashboard-property-photo" src="" alt="" hidden>
+                                    <span id="dashboard-property-photo-fallback" class="dashboard-property-photo-fallback" aria-hidden="true" hidden>E</span>
+                                </button>
+                                <div id="dashboard-property-photo-strip" class="dashboard-property-photo-strip"></div>
+                            </div>
+
                             <dl class="details-meta" id="dashboard-property-meta"></dl>
                         </article>
 
@@ -225,7 +234,7 @@
                     <div class="section-header">
                         <div>
                             <h2 id="rent-title">Rent &amp; payments</h2>
-                            <p>Submit Pochi payment details. Rent is recorded only after verification.</p>
+                            <p>Pay by M-Pesa STK Push, or send rent to the Pochi la Biashara number. Rent is recorded only after Safaricom confirms the payment.</p>
                         </div>
                         <span class="payment-section-badge" id="rent-badge">Loading</span>
                     </div>
@@ -240,8 +249,28 @@
                             </div>
 
                             <form id="rent-form" class="tenant-form" novalidate>
+                                <div class="payment-payto rent-payto">
+                                    <div class="payment-payto-main">
+                                        <p class="payment-payto-label">Rent is received on this Pochi la Biashara number</p>
+                                        <p class="payment-payto-number" id="rent-payto-number">0796488109</p>
+                                    </div>
+                                    <p class="payment-payto-note">
+                                        Send rent to this <strong>Pochi la Biashara</strong> number with M-Pesa, or
+                                        request the STK Push below. Rent is recorded only once the payment is received.
+                                    </p>
+                                </div>
+
                                 <p id="rent-form-error" class="tenant-form-error" role="alert" hidden></p>
                                 <p id="rent-payment-request-status" class="tenant-payment-request-status" role="status" hidden></p>
+
+                                <div id="rent-payment-details" class="rent-payment-details" hidden>
+                                    <dl class="receipt-details">
+                                        <div><dt>M-Pesa number used</dt><dd id="rent-pending-payer">—</dd></div>
+                                        <div><dt>Rent paid to</dt><dd id="rent-pending-paid-to">—</dd></div>
+                                        <div><dt>Safaricom receipt</dt><dd id="rent-pending-receipt">Not received yet</dd></div>
+                                    </dl>
+                                </div>
+
                                 <p class="tenant-payment-instructions">Enter the Safaricom number that should receive the STK prompt. Approve it with your M-Pesa PIN. Rent is recorded only after Safaricom confirms the payment.</p>
 
                                 <div class="tenant-form-grid">
@@ -279,6 +308,57 @@
                                     <button id="rent-submit" type="submit" class="tenant-button-primary">Send STK Push</button>
                                 </div>
                             </form>
+
+                            <div class="rent-claim-block">
+                                <div class="section-header">
+                                    <div>
+                                        <h4>Already sent rent?</h4>
+                                        <p>If you sent money to the Pochi la Biashara number, record the M-Pesa code here. Your landlord verifies it before the rent is recorded.</p>
+                                    </div>
+                                </div>
+
+                                <div id="rent-claims" class="rent-claims" hidden>
+                                    <h5 class="rent-claims-title">Submissions awaiting verification</h5>
+                                    <ul id="rent-claims-list" class="rent-claims-list"></ul>
+                                </div>
+
+                                <form id="rent-claim-form" class="tenant-form rent-claim-form" novalidate>
+                                    <p id="rent-claim-error" class="tenant-form-error" role="alert" hidden></p>
+                                    <p id="rent-claim-status" class="tenant-form-success" role="status" hidden></p>
+
+                                    <div class="tenant-form-grid">
+                                        <label class="tenant-field" for="rent-claim-amount">
+                                            <span>Amount sent (KSh)</span>
+                                            <input id="rent-claim-amount" name="amount" type="number" min="1" step="500" required>
+                                            <small class="field-hint" id="rent-claim-amount-hint"></small>
+                                        </label>
+
+                                        <label class="tenant-field" for="rent-claim-period">
+                                            <span>Rent period</span>
+                                            <input id="rent-claim-period" name="periodKey" type="month" required>
+                                        </label>
+
+                                        <label class="tenant-field" for="rent-claim-unit">
+                                            <span>Unit</span>
+                                            <input id="rent-claim-unit" name="unit" type="text" maxlength="30" required>
+                                        </label>
+
+                                        <label class="tenant-field" for="rent-claim-reference">
+                                            <span>M-Pesa confirmation code</span>
+                                            <input id="rent-claim-reference" name="reference" type="text" maxlength="20" autocomplete="off" spellcheck="false" placeholder="e.g. SJL4K9ZQ2M" required>
+                                        </label>
+
+                                        <label class="tenant-field" for="rent-claim-phone">
+                                            <span>M-Pesa number you sent from</span>
+                                            <input id="rent-claim-phone" name="phoneNumber" type="tel" inputmode="tel" autocomplete="tel" pattern="(?:0[17][0-9]{8}|\+?254[17][0-9]{8})" placeholder="0712345678" required>
+                                        </label>
+                                    </div>
+
+                                    <div class="tenant-form-actions">
+                                        <button id="rent-claim-submit" type="submit" class="tenant-button-primary">Submit for verification</button>
+                                    </div>
+                                </form>
+                            </div>
                         </article>
 
                         <article class="dashboard-section portal-panel">
@@ -304,12 +384,13 @@
                             <table class="payments-table">
                                 <thead>
                                     <tr>
-                                        <th scope="col">Receipt</th>
+                                        <th scope="col">Receipt no.</th>
                                         <th scope="col">Period</th>
                                         <th scope="col">Amount paid</th>
                                         <th scope="col">Date</th>
                                         <th scope="col">Method</th>
                                         <th scope="col">Status</th>
+                                        <th scope="col"><span class="sr-only">Receipt</span></th>
                                     </tr>
                                 </thead>
                                 <tbody id="rent-payments-body"></tbody>
@@ -512,6 +593,26 @@
 
 <div id="portal-toast" class="dashboard-toast" role="status" aria-live="polite" hidden></div>
 
+<dialog id="receipt-dialog" class="payment-dialog payment-receipt-dialog" aria-labelledby="receipt-dialog-title">
+    <div class="payment-dialog-header">
+        <div>
+            <p class="dashboard-eyebrow">PAYMENT RECEIPT</p>
+            <h2 id="receipt-dialog-title">Rent receipt</h2>
+        </div>
+        <button id="close-receipt-dialog" type="button" class="dialog-close" aria-label="Close receipt">×</button>
+    </div>
+
+    <div id="receipt-dialog-content" class="payment-receipt-dialog-content"></div>
+
+    <div class="tenant-form-actions payment-receipt-actions">
+        <button id="receipt-download" type="button" class="tenant-button-secondary">Download</button>
+        <button id="receipt-print" type="button" class="tenant-button-primary">Print / Save as PDF</button>
+    </div>
+</dialog>
+
+<div id="receipt-print-area" class="payment-receipt-print" aria-hidden="true"></div>
+
+<script src="js/rent-receipt.js"></script>
 <script src="js/tenant-portal.js"></script>
 </body>
 </html>

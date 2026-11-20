@@ -2038,6 +2038,14 @@ tbody tr:hover {
     color: #963f36;
 }
 
+.pending-payment-check {
+    color: var(--teal);
+}
+
+.pending-payment-review-state .pending-payment-check {
+    justify-self: start;
+}
+
 .pending-payment-actions button:disabled {
     cursor: wait;
     opacity: 0.6;
@@ -2460,6 +2468,67 @@ tbody tr:hover {
     font-size: 1.25rem;
 }
 
+/* --- Landlord reports: rent arrears ----------------------------------- */
+
+.reports-section .section-header {
+    align-items: flex-start;
+}
+
+.reports-subsection {
+    margin-top: 34px;
+    padding-top: 28px;
+    border-top: 1px solid var(--line);
+}
+
+.reports-subsection .section-header {
+    margin-bottom: 14px;
+}
+
+.arrears-scope {
+    margin: -6px 0 16px;
+    color: var(--muted);
+    font-size: 0.82rem;
+}
+
+.arrears-table td,
+.collection-summary-table td {
+    white-space: nowrap;
+}
+
+.arrears-bucket {
+    display: inline-block;
+    padding: 5px 11px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.arrears-bucket-current {
+    background: #f1f3f2;
+    color: #6b7671;
+}
+
+.arrears-bucket-d1_30 {
+    background: #fdf0dc;
+    color: #7a5220;
+}
+
+.arrears-bucket-d31_60 {
+    background: #fbe7cd;
+    color: #8a5a15;
+}
+
+.arrears-bucket-d61_90 {
+    background: #fbe0cf;
+    color: #9a4b1e;
+}
+
+.arrears-bucket-d90 {
+    background: #fdeae8;
+    color: #9c3527;
+}
+
 .tenants-table td {
     white-space: nowrap;
 }
@@ -2755,6 +2824,55 @@ tbody tr:hover {
     display: grid;
     gap: 14px;
     padding: 23px 26px 27px;
+}
+
+/* --- Tenant payment receipt ------------------------------------------- */
+
+.payment-receipt-dialog {
+    width: min(94vw, 780px);
+}
+
+.payment-receipt-dialog-content {
+    max-height: min(72vh, 720px);
+    overflow: auto;
+    padding: 22px 24px 8px;
+    background: var(--surface-soft);
+}
+
+.payment-receipt-actions {
+    padding: 16px 24px 22px;
+}
+
+/* Kept off-screen on screen; the only thing shown when printing a receipt. */
+.payment-receipt-print {
+    position: fixed;
+    top: 0;
+    left: -10000px;
+    width: 720px;
+}
+
+.portal-table-action {
+    text-align: right;
+    white-space: nowrap;
+}
+
+@media print {
+    /* Printing is triggered from the receipt dialog, so hide the whole page
+       and reveal only the hidden print copy of the receipt. */
+    body > *:not(.payment-receipt-print) {
+        display: none !important;
+    }
+
+    .payment-receipt-dialog::backdrop {
+        display: none !important;
+    }
+
+    .payment-receipt-print {
+        position: static !important;
+        left: auto !important;
+        width: auto !important;
+        display: block !important;
+    }
 }
 
 .dialog-payment-amount {
@@ -4384,6 +4502,15 @@ tbody tr:hover {
     gap: 22px;
 }
 
+/* Author display rules override the browser's [hidden] rule, so panels that
+   this page swaps in and out need hiding stated explicitly. */
+.payment-form-shell[hidden],
+.rent-bill-shell[hidden],
+.receipt-shell[hidden],
+.payment-field[hidden] {
+    display: none;
+}
+
 .payment-form-card,
 .payment-info-card {
     min-width: 0;
@@ -4433,6 +4560,88 @@ tbody tr:hover {
     margin-bottom: 24px;
     color: var(--muted);
     font-size: 0.86rem;
+}
+
+/* The number tenants send rent to, shown before they pay. */
+.payment-payto {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px 24px;
+    margin-bottom: 20px;
+    padding: 16px 20px;
+    border: 1px solid #cce4b6;
+    border-radius: var(--radius-md);
+    background: #f0f8e9;
+}
+
+.payment-payto-main {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.payment-payto-label {
+    margin: 0;
+    color: #56744e;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.payment-payto-number {
+    margin: 0;
+    color: var(--ink-deep);
+    font-family: "Space Grotesk", "Segoe UI", sans-serif;
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+}
+
+.payment-payto-note {
+    max-width: 340px;
+    margin: 0;
+    color: #56744e;
+    font-size: 0.78rem;
+}
+
+/* In the tenant portal the pay-to strip sits inside the form grid, which
+   already spaces its children, so the strip's own bottom margin is dropped. */
+.rent-payto {
+    margin-bottom: 0;
+}
+
+/* Shown only while an STK Push is in flight, so the tenant can see the number
+   that was asked to pay, the number rent is received on, and that no Safaricom
+   receipt exists yet. */
+.rent-payment-details {
+    margin: 0;
+    padding: 4px 16px 10px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
+}
+
+.rent-payment-details[hidden] {
+    display: none;
+}
+
+.rent-payment-details .receipt-details {
+    padding: 0;
+}
+
+.payment-confirmation-dialog {
+    width: min(92vw, 560px);
+}
+
+.payment-confirmation-dialog .receipt-details {
+    margin-top: 18px;
+}
+
+.payment-confirmation-dialog .receipt-actions {
+    margin-top: 22px;
 }
 
 .payment-field-grid {
@@ -4780,6 +4989,264 @@ tbody tr:hover {
     font-size: 0.75rem;
 }
 
+/* ================= RENT BILL VIEW ================= */
+
+.rent-bill-shell {
+    margin-bottom: 22px;
+}
+
+.rent-bill-empty,
+.bill-card[hidden],
+.rent-bill-empty[hidden] {
+    display: none;
+}
+
+.rent-bill-empty {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 22px 26px;
+    border: 1px dashed var(--line);
+    border-radius: var(--radius-md);
+    background: var(--surface-soft);
+}
+
+.rent-bill-empty > span {
+    flex: 0 0 auto;
+    font-size: 1.6rem;
+}
+
+.rent-bill-empty h2 {
+    margin: 0 0 5px;
+    color: var(--ink-deep);
+    font-size: 1rem;
+}
+
+.rent-bill-empty p {
+    max-width: 780px;
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.82rem;
+}
+
+.bill-card {
+    padding: clamp(22px, 4vw, 38px);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--white);
+    box-shadow: var(--shadow-sm);
+}
+
+.bill-card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid var(--ink-deep);
+}
+
+.bill-card-header .subtitle {
+    margin-bottom: 7px;
+}
+
+.bill-card-header h2 {
+    margin: 0;
+    color: var(--ink-deep);
+    font-size: clamp(1.35rem, 2.6vw, 1.9rem);
+}
+
+.bill-card-header h2 span {
+    color: var(--muted);
+    font-size: 0.78em;
+    font-weight: 500;
+}
+
+.bill-status {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    padding: 6px 13px;
+    border-radius: 999px;
+    background: #f1f3f2;
+    color: #6b7671;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.bill-status.paid-in-full {
+    background: #e4f3d8;
+    color: #3f6b23;
+}
+
+.bill-status.partially-paid,
+.bill-status.awaiting-confirmation {
+    background: #fdf0dc;
+    color: #7a5220;
+}
+
+.bill-parties {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 24px;
+    padding: 22px 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.bill-label {
+    margin: 0 0 6px;
+    color: var(--muted);
+    font-size: 0.64rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.bill-parties p:not(.bill-label) {
+    margin: 0 0 3px;
+    overflow-wrap: anywhere;
+    color: var(--ink);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.bill-items {
+    width: 100%;
+    margin-top: 6px;
+    border-collapse: collapse;
+}
+
+.bill-items th {
+    padding: 12px 4px;
+    border-bottom: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 0.65rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-align: left;
+    text-transform: uppercase;
+}
+
+.bill-items th:last-child,
+.bill-items td:last-child {
+    text-align: right;
+}
+
+.bill-items td {
+    padding: 13px 4px;
+    border-bottom: 1px solid #edf1ed;
+    color: var(--ink);
+    font-size: 0.82rem;
+    white-space: nowrap;
+}
+
+.bill-items td:first-child {
+    white-space: normal;
+}
+
+.bill-items .bill-credit {
+    color: #4d7a52;
+}
+
+.bill-items .bill-items-empty {
+    color: var(--muted);
+    white-space: normal;
+}
+
+.bill-total {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 18px;
+    margin-top: 8px;
+    padding: 18px 0;
+    border-top: 2px solid var(--ink-deep);
+}
+
+.bill-total .bill-label {
+    margin-bottom: 4px;
+}
+
+.bill-total p:not(.bill-label) {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.75rem;
+}
+
+.bill-total strong {
+    color: var(--accent-dark);
+    font-family: "Space Grotesk", "Segoe UI", sans-serif;
+    font-size: clamp(1.5rem, 3vw, 2.1rem);
+}
+
+.bill-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-top: 18px;
+}
+
+.bill-actions p {
+    flex: 1 1 260px;
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.72rem;
+    line-height: 1.4;
+}
+
+.bill-actions .btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+@media (max-width: 820px) {
+    .bill-parties {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 560px) {
+    .bill-parties {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .bill-total {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
+
+@media print {
+    body.printing-bill .payment-form-shell,
+    body.printing-bill .rent-bill-empty,
+    body.printing-bill .bill-actions {
+        display: none !important;
+    }
+
+    body.printing-bill .rent-bill-shell {
+        display: block !important;
+    }
+
+    body.printing-bill .bill-card {
+        border-color: #cbd7ce;
+        box-shadow: none;
+        break-inside: avoid;
+    }
+
+    body.printing-bill .bill-card,
+    body.printing-bill .bill-card * {
+        color: #172b27 !important;
+    }
+
+    body.printing-bill .bill-total strong {
+        color: #3f702e !important;
+    }
+}
+
 @media (max-width: 820px) {
     .payment-main {
         padding-top: 46px;
@@ -4868,6 +5335,7 @@ tbody tr:hover {
     .payment-footer,
     .payment-intro,
     .payment-form-shell,
+    .rent-bill-shell,
     .receipt-success-banner,
     .receipt-actions {
         display: none !important;
@@ -5349,6 +5817,79 @@ tbody tr:hover {
     gap: 22px;
 }
 
+/* The tenant's house photo on the dashboard "Where you live" card, so the
+   picture is visible without opening the My property tab. */
+.dashboard-property-gallery {
+    display: grid;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.dashboard-property-gallery[hidden] {
+    display: none;
+}
+
+.dashboard-property-photo {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: linear-gradient(140deg, #dce9de, #c6d9cd);
+    cursor: pointer;
+    transition: border-color 180ms ease, transform 180ms ease;
+}
+
+.dashboard-property-photo:hover,
+.dashboard-property-photo:focus-visible {
+    border-color: var(--teal);
+    transform: translateY(-2px);
+}
+
+.dashboard-property-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.dashboard-property-photo img[hidden] {
+    display: none;
+}
+
+.dashboard-property-photo-fallback {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+    color: rgba(23, 43, 39, 0.42);
+    font-size: 3rem;
+    font-weight: 800;
+}
+
+.dashboard-property-photo-fallback[hidden] {
+    display: none;
+}
+
+.dashboard-property-photo-strip {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.dashboard-property-photo-strip:empty {
+    display: none;
+}
+
+.dashboard-property-photo-thumb {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    object-fit: cover;
+}
+
 .portal-rent-grid,
 .portal-maintenance-grid {
     display: grid;
@@ -5401,6 +5942,129 @@ tbody tr:hover {
     color: var(--muted);
     font-size: 0.86rem;
     line-height: 1.6;
+}
+
+/* The Pochi la Biashara claim form sits under the STK form in the same panel,
+   so it shares the panel's padding and is separated by a rule instead. */
+.rent-claim-block {
+    display: grid;
+    gap: 16px;
+    padding: 20px 24px 24px;
+    border-top: 1px solid var(--line);
+}
+
+.rent-claim-block .section-header {
+    margin-bottom: 0;
+}
+
+.rent-claim-block .section-header h4 {
+    margin: 0 0 4px;
+    color: var(--ink-deep);
+    font-size: 1.05rem;
+}
+
+.rent-claim-block .section-header p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.82rem;
+    line-height: 1.55;
+}
+
+.rent-claim-form {
+    padding: 0;
+}
+
+.tenant-form-success {
+    margin: 0;
+    padding: 10px 13px;
+    border: 1px solid #b6ddb2;
+    border-radius: 12px;
+    background: #eaf6e7;
+    color: #35682a;
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+
+.tenant-form-success[hidden] {
+    display: none;
+}
+
+.rent-claims {
+    display: grid;
+    gap: 10px;
+}
+
+.rent-claims[hidden] {
+    display: none;
+}
+
+.rent-claims-title {
+    margin: 0;
+    color: var(--ink-deep);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.rent-claims-list {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.rent-claim-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--surface-soft);
+}
+
+.rent-claim-main {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+}
+
+.rent-claim-main strong {
+    color: var(--ink-deep);
+    font-size: 0.88rem;
+    overflow-wrap: anywhere;
+}
+
+.rent-claim-side {
+    display: flex;
+    flex-shrink: 0;
+}
+
+.rent-claim-status {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 11px;
+    border-radius: 999px;
+    background: #fdf0dc;
+    color: #7a5220;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.rent-claim-status-callback_review {
+    background: #e2ecf7;
+    color: #2f5480;
+}
+
+.rent-claim-status-rejected {
+    background: #fdeae8;
+    color: #9c3527;
 }
 
 .maintenance-description {
@@ -5717,6 +6381,11 @@ tbody tr:hover {
         grid-auto-flow: column;
         justify-content: start;
     }
+
+    .rent-claim-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
 }
 
 @media (max-width: 560px) {
@@ -5889,5 +6558,87 @@ tbody tr:hover {
 
     .property-photo-card {
         padding: 12px;
+    }
+}
+
+/* ================= EXPENSES & NET INCOME ================= */
+
+.expenses-section {
+    scroll-margin-top: 24px;
+}
+
+.expense-stats {
+    margin-bottom: 24px;
+}
+
+.expense-insights-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+    gap: 18px;
+    margin-top: 24px;
+}
+
+.expense-insights-grid .dashboard-section {
+    min-width: 0;
+    margin-top: 0;
+}
+
+.expense-breakdown-panel,
+.expense-trend-panel {
+    padding: 24px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--white);
+    box-shadow: var(--shadow-sm);
+}
+
+.expense-breakdown-panel .section-header,
+.expense-trend-panel .section-header {
+    align-items: flex-start;
+    margin-bottom: 12px;
+}
+
+.expense-breakdown-panel .property-breakdown {
+    max-height: 260px;
+}
+
+.expense-amount {
+    font-weight: 800;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.expense-amount.is-negative,
+#expense-net.is-negative {
+    color: #9c3527;
+}
+
+.expense-trend-table th:not(:first-child),
+.expense-trend-table td:not(:first-child) {
+    text-align: right;
+}
+
+/* A quieter destructive action that sits beside the Edit button. */
+.table-action-link {
+    margin-left: 10px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: #9c3527;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-decoration: underline;
+}
+
+.table-action-link:hover,
+.table-action-link:focus-visible {
+    color: #7d2a1f;
+}
+
+@media (max-width: 900px) {
+    .expense-insights-grid {
+        grid-template-columns: minmax(0, 1fr);
     }
 }

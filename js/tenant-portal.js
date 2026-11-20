@@ -9,6 +9,7 @@
 
     const numberFormatter = new Intl.NumberFormat('en-KE', { maximumFractionDigits: 0 });
     const dayFormatter = new Intl.DateTimeFormat('en-KE', { day: 'numeric', month: 'short', year: 'numeric' });
+    const dateTimeFormatter = new Intl.DateTimeFormat('en-KE', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
     const elements = {
         tenantName: document.querySelector('#portal-tenant-name'),
@@ -31,6 +32,11 @@
         statRequestsNote: document.querySelector('#stat-requests-note'),
         dashboardPropertyNote: document.querySelector('#dashboard-property-note'),
         dashboardPropertyMeta: document.querySelector('#dashboard-property-meta'),
+        dashboardPropertyGallery: document.querySelector('#dashboard-property-gallery'),
+        dashboardPropertyPhotoButton: document.querySelector('#dashboard-property-photo-button'),
+        dashboardPropertyPhoto: document.querySelector('#dashboard-property-photo'),
+        dashboardPropertyPhotoFallback: document.querySelector('#dashboard-property-photo-fallback'),
+        dashboardPropertyPhotoStrip: document.querySelector('#dashboard-property-photo-strip'),
         dashboardPayments: document.querySelector('#dashboard-payments'),
         dashboardRequests: document.querySelector('#dashboard-requests'),
 
@@ -65,6 +71,23 @@
         rentSubmit: document.querySelector('#rent-submit'),
         rentPayNote: document.querySelector('#rent-pay-note'),
         rentSummary: document.querySelector('#rent-summary'),
+        rentPaytoNumber: document.querySelector('#rent-payto-number'),
+        rentPaymentDetails: document.querySelector('#rent-payment-details'),
+        rentPendingPayer: document.querySelector('#rent-pending-payer'),
+        rentPendingPaidTo: document.querySelector('#rent-pending-paid-to'),
+        rentPendingReceipt: document.querySelector('#rent-pending-receipt'),
+        rentClaimForm: document.querySelector('#rent-claim-form'),
+        rentClaimError: document.querySelector('#rent-claim-error'),
+        rentClaimStatus: document.querySelector('#rent-claim-status'),
+        rentClaimAmount: document.querySelector('#rent-claim-amount'),
+        rentClaimAmountHint: document.querySelector('#rent-claim-amount-hint'),
+        rentClaimPeriod: document.querySelector('#rent-claim-period'),
+        rentClaimUnit: document.querySelector('#rent-claim-unit'),
+        rentClaimReference: document.querySelector('#rent-claim-reference'),
+        rentClaimPhone: document.querySelector('#rent-claim-phone'),
+        rentClaimSubmit: document.querySelector('#rent-claim-submit'),
+        rentClaims: document.querySelector('#rent-claims'),
+        rentClaimsList: document.querySelector('#rent-claims-list'),
         paymentHistoryCount: document.querySelector('#payment-history-count'),
         rentPaymentsBody: document.querySelector('#rent-payments-body'),
         rentPaymentsEmpty: document.querySelector('#rent-payments-empty'),
@@ -94,12 +117,21 @@
         passwordNew: document.querySelector('#password-new'),
         passwordConfirm: document.querySelector('#password-confirm'),
         passwordSubmit: document.querySelector('#password-submit'),
-        accountMeta: document.querySelector('#account-meta')
+        accountMeta: document.querySelector('#account-meta'),
+
+        receiptDialog: document.querySelector('#receipt-dialog'),
+        receiptContent: document.querySelector('#receipt-dialog-content'),
+        receiptPrintArea: document.querySelector('#receipt-print-area'),
+        receiptClose: document.querySelector('#close-receipt-dialog'),
+        receiptPrint: document.querySelector('#receipt-print'),
+        receiptDownload: document.querySelector('#receipt-download')
     };
 
     const state = {
         portal: null,
-        pendingPaymentRequestId: ''
+        pendingPaymentRequestId: '',
+        pendingPayerPhone: '',
+        receiptPayment: null
     };
 
     const createElement = (tag, className, text) => {
@@ -126,6 +158,12 @@
         const date = new Date(`${String(dateString).slice(0, 10)}T00:00:00`);
 
         return Number.isNaN(date.getTime()) ? String(dateString) : dayFormatter.format(date);
+    };
+
+    const formatDateTime = (value) => {
+        const date = value ? new Date(value) : new Date();
+
+        return Number.isNaN(date.getTime()) ? formatDate(value) : dateTimeFormatter.format(date);
     };
 
     const setMessage = (element, message) => {
@@ -395,6 +433,86 @@
         renderGallery(property.images || (property.image ? [property.image] : []));
     };
 
+    /* The house photo on the dashboard card, so a tenant sees their home the
+       moment they sign in instead of having to open "My property". Clicking it
+       jumps to the full photo gallery. */
+    const renderDashboardPropertyPhotos = (property) => {
+        const gallery = elements.dashboardPropertyGallery;
+
+        if (!gallery) {
+            return;
+        }
+
+        const images = (Array.isArray(property?.images) ? property.images : [])
+            .filter((image) => typeof image === 'string' && image);
+        const photos = images.length ? images : (property?.image ? [property.image] : []);
+        const hero = elements.dashboardPropertyPhoto;
+        const fallback = elements.dashboardPropertyPhotoFallback;
+        const strip = elements.dashboardPropertyPhotoStrip;
+
+        strip?.replaceChildren();
+        hero?.setAttribute('hidden', '');
+        hero?.removeAttribute('src');
+        fallback?.setAttribute('hidden', '');
+
+        if (!property) {
+            gallery.hidden = true;
+            return;
+        }
+
+        gallery.hidden = false;
+
+        const homeName = property.name || 'your home';
+        const initial = String(property.name || 'EstatePro').trim().charAt(0).toUpperCase() || 'E';
+
+        if (elements.dashboardPropertyPhotoButton) {
+            elements.dashboardPropertyPhotoButton.setAttribute('aria-label', `View photos of ${homeName}`);
+        }
+
+        /* No photos uploaded yet: the lettered tile matches the "My property"
+           fallback rather than leaving an empty space. */
+        if (!photos.length) {
+            if (fallback) {
+                fallback.textContent = initial;
+                fallback.hidden = false;
+            }
+            return;
+        }
+
+        /* The hero only appears once the image has actually loaded, so a broken
+           path falls back to the lettered tile instead of a blank frame. */
+        const heroProbe = new Image();
+
+        heroProbe.addEventListener('load', () => {
+            hero.src = photos[0];
+            hero.alt = `Photo of ${homeName}`;
+            hero.hidden = false;
+
+            if (fallback) {
+                fallback.hidden = true;
+            }
+        });
+        heroProbe.addEventListener('error', () => {
+            if (fallback) {
+                fallback.textContent = initial;
+                fallback.hidden = false;
+            }
+        });
+        heroProbe.src = photos[0];
+
+        /* A few more photos as a strip; broken ones remove themselves. */
+        photos.slice(1, 5).forEach((source, index) => {
+            const thumb = document.createElement('img');
+
+            thumb.className = 'dashboard-property-photo-thumb';
+            thumb.src = source;
+            thumb.alt = `Photo ${index + 2} of ${homeName}`;
+            thumb.loading = 'lazy';
+            thumb.addEventListener('error', () => thumb.remove());
+            strip?.appendChild(thumb);
+        });
+    };
+
     const renderDashboard = () => {
         const portal = state.portal;
         const rent = portal.rent;
@@ -427,6 +545,8 @@
         elements.dashboardPropertyNote.textContent = property
             ? `${property.name} · ${property.location}`
             : 'No property is linked to your account yet.';
+
+        renderDashboardPropertyPhotos(property);
 
         buildMetaList(property ? [
             ['Property', property.name],
@@ -480,8 +600,109 @@
             createElement('small', 'cell-subline', `${payment.receiptNumber || payment.reference || 'Receipt not issued'} · ${formatDate(payment.paidOn)} · ${payment.method || 'Method not recorded'}`)
         );
 
-        row.append(main, createStatusBadge(payment.status));
+        const side = document.createElement('div');
+
+        side.className = 'portal-list-side';
+        side.append(createStatusBadge(payment.status), createReceiptButton(payment));
+
+        row.append(main, side);
         return row;
+    };
+
+    /* Every recorded payment can be opened as a receipt, from the recent
+       payments list on the dashboard and from the full history table. */
+    const createReceiptButton = (payment, label = 'Receipt') => {
+        const button = createElement('button', 'table-action-btn payment-receipt-open', label);
+
+        button.type = 'button';
+        button.dataset.receiptPayment = payment.id;
+        button.setAttribute('aria-label', `View the receipt for ${payment.period} (${formatCurrency(payment.paidAmount)})`);
+        return button;
+    };
+
+    /* --- receipts -------------------------------------------------------- */
+
+    /* The receipt is built by the shared module (js/rent-receipt.js) so the
+       pay-rent page and this portal render exactly the same document. */
+    const receiptContext = (payment) => ({
+        payment,
+        tenant: state.portal?.tenant || {},
+        property: state.portal?.property || {},
+        monthlyRent: state.portal?.rent?.monthlyRent || 0,
+        paidTo: state.portal?.receivingNumber || ''
+    });
+
+    const buildReceiptNode = (payment) => window.EstateProRentReceipt.build(receiptContext(payment));
+
+    const openReceipt = (payment) => {
+        if (!elements.receiptDialog || !elements.receiptContent || !payment) {
+            return;
+        }
+
+        state.receiptPayment = payment;
+        elements.receiptContent.replaceChildren(buildReceiptNode(payment));
+
+        if (typeof elements.receiptDialog.showModal === 'function') {
+            if (!elements.receiptDialog.open) {
+                elements.receiptDialog.showModal();
+            }
+        } else {
+            elements.receiptDialog.setAttribute('open', '');
+        }
+    };
+
+    const closeReceipt = () => {
+        state.receiptPayment = null;
+
+        if (!elements.receiptDialog) {
+            return;
+        }
+
+        if (elements.receiptDialog.open && typeof elements.receiptDialog.close === 'function') {
+            elements.receiptDialog.close();
+        } else {
+            elements.receiptDialog.removeAttribute('open');
+        }
+
+        elements.receiptContent?.replaceChildren();
+    };
+
+    const printReceipt = () => {
+        const payment = state.receiptPayment;
+
+        if (!payment || !elements.receiptPrintArea) {
+            return;
+        }
+
+        /* The dialog is a modal, so printing it directly is unreliable across
+           browsers. The shared module prints a hidden copy instead, which the
+           @media print rule reveals. */
+        window.EstateProRentReceipt.print(receiptContext(payment), elements.receiptPrintArea);
+    };
+
+    const downloadReceipt = () => {
+        const payment = state.receiptPayment;
+
+        if (!payment) {
+            return;
+        }
+
+        window.EstateProRentReceipt.download(receiptContext(payment));
+        showToast('Receipt downloaded. Open it and use Print → Save as PDF for a PDF copy.');
+    };
+
+    const handleReceiptClick = (event) => {
+        const button = event.target.closest('[data-receipt-payment]');
+
+        if (!button) {
+            return;
+        }
+
+        const payment = state.portal?.payments?.find((item) => String(item.id) === button.dataset.receiptPayment);
+
+        if (payment) {
+            openReceipt(payment);
+        }
     };
 
     const createMaintenanceRow = (item, { compact = false } = {}) => {
@@ -539,9 +760,81 @@
         elements.rentSubmit.disabled = rent.isCurrentMonthPaid || !state.portal.property || Boolean(state.pendingPaymentRequestId);
     };
 
+    /* Pochi claims the tenant has already submitted. They are not rent yet:
+       each waits for the landlord to check the M-Pesa code, so they are shown
+       separately from the payment history with their verification state. */
+    const renderRentClaims = () => {
+        const portal = state.portal;
+        const rent = portal.rent;
+        const claims = portal.claims || [];
+
+        if (elements.rentClaimAmount) {
+            elements.rentClaimAmount.max = String(rent.monthlyRent || 1);
+        }
+
+        if (elements.rentClaimAmountHint) {
+            elements.rentClaimAmountHint.textContent = rent.isCurrentMonthPaid
+                ? `Your ${rent.currentPeriod} rent is already settled.`
+                : `Your ${rent.currentPeriod} rent is ${formatCurrency(rent.monthlyRent)}.`;
+        }
+
+        /* Prefilled with the same figures as the STK form so a tenant who paid
+           by Pochi only has to add the M-Pesa code. */
+        elements.rentClaimPeriod.value = rent.currentMonthKey;
+        elements.rentClaimAmount.value = rent.isCurrentMonthPaid ? '' : String(rent.outstandingThisMonth || rent.monthlyRent);
+        elements.rentClaimUnit.value = portal.tenant.unit || '';
+
+        if (!elements.rentClaimPhone.value) {
+            elements.rentClaimPhone.value = portal.tenant.phone || '';
+        }
+
+        if (!elements.rentClaims || !elements.rentClaimsList) {
+            return;
+        }
+
+        elements.rentClaimsList.replaceChildren();
+        elements.rentClaims.hidden = claims.length === 0;
+
+        claims.forEach((claim) => {
+            const row = document.createElement('li');
+
+            row.className = 'rent-claim-row';
+
+            const main = document.createElement('div');
+
+            main.className = 'rent-claim-main';
+            main.append(
+                createElement('strong', '', `${formatCurrency(claim.amount)} · ${claim.period || '—'}`),
+                createElement(
+                    'small',
+                    'cell-subline',
+                    `M-Pesa code ${claim.reference || '—'} · submitted ${formatDate(claim.submittedAt)}`
+                )
+            );
+
+            const side = document.createElement('div');
+
+            side.className = 'rent-claim-side';
+            side.append(createElement(
+                'span',
+                `rent-claim-status rent-claim-status-${claim.status || 'pending'}`,
+                claim.statusLabel || 'Awaiting verification'
+            ));
+
+            row.append(main, side);
+            elements.rentClaimsList.appendChild(row);
+        });
+    };
+
     const renderRent = () => {
         const portal = state.portal;
         const rent = portal.rent;
+
+        /* The number rent is received on comes from the server, so changing it
+           in configuration updates the portal without a code change. */
+        if (portal.receivingNumber && elements.rentPaytoNumber) {
+            elements.rentPaytoNumber.textContent = portal.receivingNumber;
+        }
 
         elements.rentBadge.textContent = rent.isCurrentMonthPaid
             ? `${rent.currentPeriod} paid`
@@ -595,8 +888,16 @@
 
             statusCell.append(createStatusBadge(payment.status));
             row.append(statusCell);
+
+            const receiptCell = document.createElement('td');
+
+            receiptCell.className = 'portal-table-action';
+            receiptCell.append(createReceiptButton(payment, 'View'));
+            row.append(receiptCell);
             elements.rentPaymentsBody.appendChild(row);
         });
+
+        renderRentClaims();
     };
 
     const renderMaintenance = () => {
@@ -686,6 +987,41 @@
         applyPortal(data);
     };
 
+    /* The pay-to number and the in-flight payment details are the same story
+       the public pay-rent page tells: where rent is received, and what
+       Safaricom was asked for while the prompt is still open. */
+    const setRentPendingDetails = ({ payer, paidTo, receipt } = {}) => {
+        if (payer !== undefined && elements.rentPendingPayer) {
+            elements.rentPendingPayer.textContent = payer || '—';
+        }
+
+        if (paidTo !== undefined && elements.rentPendingPaidTo) {
+            elements.rentPendingPaidTo.textContent = paidTo || '—';
+        }
+
+        if (receipt !== undefined && elements.rentPendingReceipt) {
+            elements.rentPendingReceipt.textContent = receipt || '—';
+        }
+    };
+
+    const setRentPendingVisibility = (visible) => {
+        if (elements.rentPaymentDetails) {
+            elements.rentPaymentDetails.hidden = !visible;
+        }
+    };
+
+    /* After a confirmed payment the portal is reloaded; the recorded payment is
+       matched by its receipt number, falling back to the newest record because
+       that is the one the confirmation just wrote. */
+    const findRecordedPayment = (paid) => {
+        const records = state.portal?.payments || [];
+        const wanted = [paid.receiptNumber, paid.reference].filter(Boolean);
+
+        return records.find((payment) => wanted.includes(payment.receiptNumber) || wanted.includes(payment.reference))
+            || records[0]
+            || null;
+    };
+
     const pollStkPayment = async (requestId) => {
         if (state.pendingPaymentRequestId !== requestId) {
             return;
@@ -702,17 +1038,42 @@
         }
 
         if (ok && data.state === 'paid') {
+            const reference = data.receiptNumber || data.reference || '';
+            const payerPhone = data.payerPhone || state.pendingPayerPhone || '—';
+
             state.pendingPaymentRequestId = '';
+            state.pendingPayerPhone = '';
+            setRentPendingDetails({
+                payer: payerPhone,
+                paidTo: data.paidTo || data.receivingNumber || state.portal?.receivingNumber || '—',
+                receipt: reference || 'Confirmed'
+            });
             setMessage(
                 elements.rentPaymentRequestStatus,
                 `Safaricom confirmed payment ${data.reference || data.receiptNumber}. Your rent has been updated.`
             );
+
+            /* Reload first so the rent position and history include the new
+               payment, then open its receipt straight away. */
             await loadPortal();
+
+            const recorded = findRecordedPayment(data);
+
+            if (recorded) {
+                openReceipt(recorded);
+                showToast(reference
+                    ? `Payment ${reference} received. Your receipt is ready.`
+                    : 'Your payment has been received. Your receipt is ready.');
+            } else {
+                showToast('Your payment has been received and recorded.');
+            }
             return;
         }
 
         if (ok && data.state === 'failed') {
             state.pendingPaymentRequestId = '';
+            state.pendingPayerPhone = '';
+            setRentPendingVisibility(false);
             setMessage(elements.rentPaymentRequestStatus, data.message || 'The STK Push was not completed. You can try again.');
             syncRentSubmitState();
             return;
@@ -798,6 +1159,13 @@
             }
 
             state.pendingPaymentRequestId = data.request.id;
+            state.pendingPayerPhone = elements.rentPaymentPhone.value.trim();
+            setRentPendingDetails({
+                payer: state.pendingPayerPhone,
+                paidTo: data.receivingNumber || state.portal?.receivingNumber || '—',
+                receipt: 'Not received yet'
+            });
+            setRentPendingVisibility(true);
             syncRentSubmitState();
             setMessage(
                 elements.rentPaymentRequestStatus,
@@ -810,6 +1178,91 @@
         } finally {
             elements.rentSubmit.textContent = 'Send STK Push';
             syncRentSubmitState();
+        }
+    });
+
+    /* A tenant who sent rent to the Pochi la Biashara number records the M-Pesa
+       code here. Nothing is marked paid: the landlord verifies the code against
+       the M-Pesa statement from the dashboard first. */
+    elements.rentClaimForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        setMessage(elements.rentClaimError, '');
+        setMessage(elements.rentClaimStatus, '');
+
+        const amount = Number(elements.rentClaimAmount.value);
+        const reference = elements.rentClaimReference.value.trim().toUpperCase();
+        const phoneNumber = elements.rentClaimPhone.value.trim();
+        const unit = elements.rentClaimUnit.value.trim();
+        const periodKey = elements.rentClaimPeriod.value;
+
+        if (!Number.isFinite(amount) || amount <= 0) {
+            setMessage(elements.rentClaimError, 'Enter the amount you sent.');
+            return;
+        }
+
+        if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(periodKey)) {
+            setMessage(elements.rentClaimError, 'Choose the rent period you paid for.');
+            return;
+        }
+
+        if (!unit) {
+            setMessage(elements.rentClaimError, 'Enter the unit or house number.');
+            elements.rentClaimUnit.focus();
+            return;
+        }
+
+        if (!/^[A-Z0-9]{4,20}$/.test(reference)) {
+            setMessage(elements.rentClaimError, 'Enter the M-Pesa confirmation code, such as SJL4K9ZQ2M.');
+            elements.rentClaimReference.focus();
+            return;
+        }
+
+        if (!/^(?:0[17]\d{8}|\+?254[17]\d{8})$/.test(phoneNumber)) {
+            setMessage(elements.rentClaimError, 'Enter the Safaricom number you sent the money from.');
+            elements.rentClaimPhone.focus();
+            return;
+        }
+
+        elements.rentClaimSubmit.disabled = true;
+        elements.rentClaimSubmit.textContent = 'Submitting…';
+
+        try {
+            const { ok, status, data } = await requestJson('/api/tenant/payments/pochi', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ amount, periodKey, unit, reference, phoneNumber })
+            });
+
+            if (!ok) {
+                /* A duplicate code is the one failure worth spelling out: it
+                   means the tenant already submitted, or already paid. */
+                setMessage(
+                    elements.rentClaimError,
+                    status === 409
+                        ? (data.error || 'That M-Pesa code has already been submitted.')
+                        : (status === 0
+                            ? 'The server response was lost, so we cannot confirm whether your submission was received. Check the list below before trying again.'
+                            : (data.error || `Your payment could not be submitted (the server replied with status ${status}). Please try again.`))
+                );
+                return;
+            }
+
+            elements.rentClaimReference.value = '';
+
+            if (data.portal) {
+                applyPortal(data.portal);
+            }
+
+            setMessage(
+                elements.rentClaimStatus,
+                data.message || 'Submitted. Your landlord will verify the M-Pesa code before your rent is recorded.'
+            );
+            showToast('Pochi payment submitted. It is awaiting your landlord\'s verification.');
+        } catch (error) {
+            setMessage(elements.rentClaimError, error.message || 'The payment service could not be reached. Try again.');
+        } finally {
+            elements.rentClaimSubmit.disabled = false;
+            elements.rentClaimSubmit.textContent = 'Submit for verification';
         }
     });
 
@@ -888,19 +1341,25 @@
         });
     };
 
+    const goToSection = (id) => {
+        const target = document.getElementById(id);
+
+        revealSection(id);
+
+        if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    };
+
     sectionLinks.forEach((link) => {
         link.addEventListener('click', (event) => {
             event.preventDefault();
-            const id = link.dataset.section;
-            const target = document.getElementById(id);
-
-            revealSection(id);
-
-            if (target) {
-                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
+            goToSection(link.dataset.section);
         });
     });
+
+    /* The dashboard house photo is a shortcut into the full gallery. */
+    elements.dashboardPropertyPhotoButton?.addEventListener('click', () => goToSection('property'));
 
     const initialSection = (window.location.hash || '').replace('#', '');
 
@@ -1039,6 +1498,19 @@
             button.textContent = 'Cancel';
         }
     });
+
+    /* Receipts: opened from the recent payments list and the full history
+       table, and closed by the button, the backdrop or the Escape key. */
+    elements.receiptClose?.addEventListener('click', closeReceipt);
+    elements.receiptPrint?.addEventListener('click', printReceipt);
+    elements.receiptDownload?.addEventListener('click', downloadReceipt);
+    elements.receiptDialog?.addEventListener('click', (event) => {
+        if (event.target === elements.receiptDialog) {
+            closeReceipt();
+        }
+    });
+    elements.rentPaymentsBody?.addEventListener('click', handleReceiptClick);
+    elements.dashboardPayments?.addEventListener('click', handleReceiptClick);
 
     elements.signOut.addEventListener('click', async () => {
         elements.signOut.disabled = true;
