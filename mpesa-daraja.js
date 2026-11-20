@@ -128,6 +128,25 @@ const normalizeKenyanPhone = (value) => {
     return '';
 };
 
+/* The Pochi la Biashara number tenants send rent to when they pay manually.
+   Money is received on an ordinary phone number rather than a paybill or till.
+   This is deliberately separate from the Daraja business shortcode: STK Push
+   can only target a business shortcode, so the Pochi la Biashara number is what
+   tenants are shown and what the receipt records as "rent paid to". */
+const DEFAULT_MPESA_RECEIVING_NUMBER = '0796488109';
+
+const getMpesaReceivingNumber = () => {
+    const configured = String(process.env.MPESA_RECEIVING_NUMBER || '').trim();
+    const normalized = normalizeKenyanPhone(configured || DEFAULT_MPESA_RECEIVING_NUMBER);
+
+    if (!normalized) {
+        return DEFAULT_MPESA_RECEIVING_NUMBER;
+    }
+
+    /* Kept in the local 0XXXXXXXXX form tenants actually dial. */
+    return `0${normalized.slice(3)}`;
+};
+
 const initiateDarajaStkPush = async ({ phoneNumber, amount }) => {
     const settings = getDarajaSettings();
     const normalizedPhone = normalizeKenyanPhone(phoneNumber);
@@ -215,6 +234,86 @@ const initiateDarajaStkPush = async ({ phoneNumber, amount }) => {
     };
 };
 
+/* Asks Safaricom how an STK request actually ended, which is the only way to
+   settle a payment whose callback never arrived. The password is built the
+   same way as for the push itself, from a fresh timestamp. */
+const queryDarajaStkStatus = async ({ checkoutRequestId }) => {
+    const settings = getDarajaSettings();
+    const checkoutId = String(checkoutRequestId || '').trim();
+
+    if (!checkoutId) {
+        throw new Error('The payment request has no Safaricom checkout reference to query.');
+    }
+
+    const accessToken = await getAccessToken(settings);
+    const timestamp = getNairobiTimestamp();
+    const password = Buffer.from(`${settings.shortcode}${settings.passkey}${timestamp}`).toString('base64');
+
+    let response;
+    try {
+        response = await fetch(`${settings.baseUrl}/mpesa/stkpushquery/v1/query`, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+                Accept: 'application/json',
+                'Content-Type': 'application/json'
+            },
+            signal: AbortSignal.timeout(20000),
+            body: JSON.stringify({
+                BusinessShortCode: settings.shortcode,
+                Password: password,
+                Timestamp: timestamp,
+                CheckoutRequestID: checkoutId
+            })
+        });
+    } catch (cause) {
+        const error = new Error('Safaricom did not answer the transaction status query.');
+        error.cause = cause;
+        throw error;
+    }
+
+    let result;
+    try {
+        result = await response.json();
+    } catch (cause) {
+        const error = new Error('Safaricom returned an unreadable status query response.');
+        error.cause = cause;
+        throw error;
+    }
+
+    /* While the subscriber has not answered the prompt, Safaricom answers
+       this query with an HTTP error saying the transaction is still being
+       processed. That is a normal "not finished yet", not a payment failure. */
+    const description = String(result.errorMessage || result.ResultDesc || '').trim();
+
+    if (!response.ok && /being processed/i.test(description)) {
+        return { definitive: false, resultCode: null, resultDescription: 'The transaction is still being processed.' };
+    }
+
+    if (!response.ok) {
+        throw new Error(result.errorMessage || `Safaricom rejected the status query (HTTP ${response.status}).`);
+    }
+
+    if (result.ResponseCode === undefined
+        || result.ResultCode === undefined
+        || result.ResultCode === null
+        || !/^-?\d+$/.test(String(result.ResultCode))) {
+        throw new Error('Safaricom returned an incomplete status query response.');
+    }
+
+    if (String(result.ResponseCode) !== '0') {
+        throw new Error(result.errorMessage || result.ResponseDescription || 'Safaricom rejected the status query.');
+    }
+
+    /* ResultCode is the transaction's own outcome: 0 means Safaricom finished
+       it successfully, anything else is a final failure with its reason. */
+    return {
+        definitive: true,
+        resultCode: String(result.ResultCode),
+        resultDescription: String(result.ResultDesc || '').trim()
+    };
+};
+
 const isValidDarajaCallbackToken = (receivedToken) => {
     let expectedToken;
     try {
@@ -231,7 +330,9 @@ const isValidDarajaCallbackToken = (receivedToken) => {
 module.exports = {
     getDarajaSettings,
     initiateDarajaStkPush,
+    queryDarajaStkStatus,
     isValidDarajaCallbackToken,
     getDarajaCallbackToken,
+    getMpesaReceivingNumber,
     normalizeKenyanPhone
 };

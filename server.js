@@ -23,7 +23,9 @@ const {
 const {
     getDarajaSettings,
     initiateDarajaStkPush,
+    queryDarajaStkStatus,
     isValidDarajaCallbackToken,
+    getMpesaReceivingNumber,
     normalizeKenyanPhone
 } = require('./mpesa-daraja');
 
@@ -34,6 +36,7 @@ const properties = [];
 const payments = [];
 const tenants = [];
 const maintenanceRequests = [];
+const expenses = [];
 const propertyImageDirectory = path.join(rootDirectory, 'uploads', 'properties');
 const propertyImageTypes = new Map([
     ['image/jpeg', { extension: '.jpg', signature: (buffer) => buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff }],
@@ -58,7 +61,9 @@ const tenantSessions = createSessionStore();
 const adminLoginThrottle = createAttemptThrottle();
 const tenantLoginThrottle = createAttemptThrottle();
 const paymentThrottle = createAttemptThrottle({ maxAttempts: 20, windowMs: 10 * 60 * 1000, lockoutMs: 10 * 60 * 1000 });
-const activeMpesaCallbacks = new Set();
+/* One Safaricom checkout is settled by either the callback or a status query
+   at a time, never both, so the same payment cannot be recorded twice. */
+const safaricomCheckoutsInFlight = new Set();
 const registrationThrottle = createAttemptThrottle({ maxAttempts: 10, windowMs: 60 * 60 * 1000, lockoutMs: 60 * 60 * 1000 });
 const maintenanceThrottle = createAttemptThrottle({ maxAttempts: 12, windowMs: 60 * 60 * 1000, lockoutMs: 60 * 60 * 1000 });
 let adminCredentials;
@@ -190,7 +195,7 @@ const reconcileInterruptedMpesaRequests = async () => {
         payment.status = 'STK Push outcome needs reconciliation';
         payment.stkStatus = 'reconciliation_required';
         payment.paymentRequestStatus = 'callback_review';
-        payment.failureReason = 'The server restarted before Safaricom returned a definitive result. Check Safaricom transaction status before retrying.';
+        payment.failureReason = 'The server restarted before Safaricom returned a definitive result. Use "Check with Safaricom" on this request before retrying.';
         payment.updatedAt = updatedAt;
     });
 
@@ -208,6 +213,10 @@ const persistTenants = () => {
 
 const persistMaintenanceRequests = () => {
     return saveCollection('maintenance', maintenanceRequests);
+};
+
+const persistExpenses = () => {
+    return saveCollection('expenses', expenses);
 };
 
 const tenantStatuses = new Set(['Active', 'Inactive']);
@@ -247,6 +256,25 @@ const totalPaidForRentPeriod = (paymentList, period) => paymentList
     .reduce((total, payment) => total + (Number(payment.paidAmount) || 0), 0);
 
 const rentPeriodOutstanding = (paymentList, period) => Math.max(0, Number(period?.amount || 0) - totalPaidForRentPeriod(paymentList, period));
+
+/* Money that has been requested but not confirmed yet still reserves part of
+   a rent period. An unanswered STK Push and a Pochi payment waiting for the
+   landlord's verification are both "paid" from the payer's point of view, so
+   neither may be paid twice. Confirming one replaces the reservation with a
+   real payment record; rejecting one releases it. */
+const stkPendingStatuses = [
+    'initiating', 'pending', 'processing', 'finalization_pending', 'callback_review', 'reconciliation_required'
+];
+const pochiPendingStatuses = ['pending', 'callback_review'];
+const isReservedRentPayment = (payment) => (
+    (payment?.method === 'M-Pesa STK Push' && stkPendingStatuses.includes(payment.stkStatus))
+    || (payment?.method === 'Pochi la Biashara' && pochiPendingStatuses.includes(payment.paymentRequestStatus))
+);
+const reservedRentForPeriod = (paymentList, period, method = '') => paymentList
+    .filter((payment) => isReservedRentPayment(payment)
+        && (!method || payment.method === method)
+        && rentPeriodKeyOf(payment) === rentPeriodKeyOf(period))
+    .reduce((total, payment) => total + (Number(payment.requestedAmount) || 0), 0);
 
 /* Sums what is still owed, counting each rent period once no matter how many
    part payments it holds. */
@@ -507,7 +535,7 @@ const linkPaymentsToTenants = async () => {
 
 const requireAdminSession = (request, response, next) => {
     if (!isAdminAuthenticated(request)) {
-        sendJson(response, 401, { error: 'Admin authentication is required to manage tenants.' });
+        sendJson(response, 401, { error: 'Admin authentication is required to manage this workspace.' });
         return;
     }
 
@@ -726,14 +754,7 @@ const createMpesaPaymentRequest = async (input) => {
         unit,
         monthKey: periodKey
     };
-    const reservedAmount = payments
-        .filter((payment) => (
-            payment.method === 'M-Pesa STK Push'
-            && ['initiating', 'pending', 'processing', 'finalization_pending', 'callback_review', 'reconciliation_required']
-                .includes(payment.stkStatus)
-            && rentPeriodKeyOf(payment) === rentPeriodKeyOf(rentPeriod)
-        ))
-        .reduce((total, payment) => total + (Number(payment.requestedAmount) || 0), 0);
+    const reservedAmount = reservedRentForPeriod(payments, rentPeriod);
     const outstanding = Math.max(0, rentForPeriod - totalPaidForRentPeriod(payments, rentPeriod) - reservedAmount);
 
     if (outstanding <= 0) {
@@ -797,7 +818,7 @@ const createMpesaPaymentRequest = async (input) => {
             paymentRequest.status = 'STK Push outcome needs reconciliation';
             paymentRequest.stkStatus = 'reconciliation_required';
             paymentRequest.paymentRequestStatus = 'callback_review';
-            paymentRequest.failureReason = 'Safaricom did not return a definitive result. Check Safaricom transaction status before retrying.';
+            paymentRequest.failureReason = 'Safaricom did not return a definitive result. Use "Check with Safaricom" on this request before retrying.';
             paymentRequest.updatedAt = new Date().toISOString();
             try {
                 await persistPayments();
@@ -819,7 +840,8 @@ const createMpesaPaymentRequest = async (input) => {
                         phoneNumber: paymentRequest.payerPhone,
                         status: paymentRequest.stkStatus
                     },
-                    businessShortCode: paymentRequest.businessShortCode
+                    businessShortCode: paymentRequest.businessShortCode,
+                    receivingNumber: getMpesaReceivingNumber()
                 }
             };
         }
@@ -868,6 +890,7 @@ const createMpesaPaymentRequest = async (input) => {
                 status: paymentRequest.stkStatus
             },
             businessShortCode: paymentRequest.businessShortCode,
+            receivingNumber: getMpesaReceivingNumber(),
             customerMessage: paymentRequest.customerMessage
         }
     };
@@ -926,7 +949,10 @@ const recordPayment = async (input) => {
     const { periodKey, period } = getPeriodDetails(requestedPeriodKey);
     const paidOn = new Date().toISOString().slice(0, 10);
     const reference = String(input.reference || `EP-${crypto.randomBytes(4).toString('hex').toUpperCase()}`).trim();
-    const previousPayment = input.source === 'mpesa-stk-callback'
+    /* Both Safaricom-fed paths guard against the same transaction being
+       recorded twice: the callback arrives with Safaricom's receipt, the
+       status query settles under the checkout reference it asked about. */
+    const previousPayment = ['mpesa-stk-callback', 'mpesa-stk-query'].includes(input.source)
         ? payments.find((payment) => (
             hasRecordedPayment(payment)
             && payment.method === 'M-Pesa STK Push'
@@ -1085,6 +1111,187 @@ const handlePaymentSubmission = async (request, response) => {
     sendJson(response, result.code, result.body);
 };
 
+/* Public version of the Pochi claim, for the pay-rent page. Somebody who has
+   already sent part of the rent to the Pochi la Biashara number records the
+   M-Pesa code here so the landlord can verify it. No tenant session is needed,
+   so no tenant id typed into the public form is trusted — the email is the
+   only link to an existing tenancy. */
+const handlePublicPochiClaim = async (request, response) => {
+    if (!isSameOriginRequest(request)) {
+        sendJson(response, 403, { error: 'Cross-origin payment submissions are not allowed.' });
+        return;
+    }
+
+    const throttle = paymentThrottle.check(getClientKey(request));
+
+    if (throttle.locked) {
+        sendJson(response, 429, { error: 'Too many payment submissions. Please try again later.' });
+        return;
+    }
+
+    const tenantName = String(request.body.tenantName || '').trim();
+    const tenantEmail = normaliseEmail(request.body.tenantEmail);
+    const tenantPhone = String(request.body.tenantPhone || '').trim();
+    const propertyId = String(request.body.propertyId || '').trim();
+    const unit = String(request.body.unit || '').trim();
+    const amount = Math.round(Number(request.body.amount));
+    const reference = String(request.body.reference || '').trim().toUpperCase();
+    const payerPhone = normalizeKenyanPhone(request.body.phoneNumber);
+
+    if (tenantName.length < 2 || tenantName.length > 100) {
+        sendJson(response, 400, { error: 'Enter the full name on the tenancy.' });
+        return;
+    }
+
+    if (!isValidEmail(tenantEmail)) {
+        sendJson(response, 400, { error: 'Enter a valid email address.' });
+        return;
+    }
+
+    const property = properties.find((item) => item.id === propertyId);
+
+    if (!property) {
+        sendJson(response, 404, { error: 'Choose a valid property.' });
+        return;
+    }
+
+    if (!unit || unit.length > 30) {
+        sendJson(response, 400, { error: 'Enter the unit or house number.' });
+        return;
+    }
+
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(String(request.body.periodKey || '').trim())) {
+        sendJson(response, 400, { error: 'Choose the rent period you paid for.' });
+        return;
+    }
+
+    if (!Number.isSafeInteger(amount) || amount <= 0) {
+        sendJson(response, 400, { error: 'Enter the amount you sent.' });
+        return;
+    }
+
+    if (!/^[A-Z0-9]{4,20}$/.test(reference)) {
+        sendJson(response, 400, { error: 'Enter the M-Pesa confirmation code, such as SJL4K9ZQ2M.' });
+        return;
+    }
+
+    if (!payerPhone) {
+        sendJson(response, 400, { error: 'Enter the Safaricom number you sent the money from.' });
+        return;
+    }
+
+    const knownTenant = findTenantForPayment({ tenantEmail });
+    const { periodKey, period } = getPeriodDetails(String(request.body.periodKey).trim());
+    const rentForPeriod = Math.round(Number(knownTenant?.monthlyRent) || Number(property.monthlyRent) || 0);
+    const rentPeriod = {
+        tenantId: knownTenant?.id || '',
+        tenantEmail,
+        propertyId: property.id,
+        unit,
+        monthKey: periodKey
+    };
+    const reserved = reservedRentForPeriod(payments, rentPeriod);
+    const outstanding = Math.max(0, rentForPeriod
+        - totalPaidForRentPeriod(payments, rentPeriod) - reserved);
+
+    if (outstanding <= 0) {
+        sendJson(response, 409, {
+            error: reserved > 0
+                ? 'This rent period is already paid or has a payment waiting for verification. Do not pay twice.'
+                : 'This rent period has already been paid in full.'
+        });
+        return;
+    }
+
+    if (amount > outstanding) {
+        sendJson(response, 400, { error: `The balance you can still pay is KSh ${outstanding.toLocaleString('en-KE')}.` });
+        return;
+    }
+
+    /* The same M-Pesa code must not be claimed twice, whether it is still
+       waiting for verification or has already been recorded against rent. */
+    const duplicate = payments.find((payment) => (
+        payment.method === 'Pochi la Biashara'
+        && String(payment.reference || '').toUpperCase() === reference
+        && (
+            (knownTenant && paymentBelongsToTenant(payment, knownTenant))
+            || (!knownTenant && normaliseEmail(payment.tenantEmail) === tenantEmail)
+        )
+    ));
+
+    if (duplicate) {
+        sendJson(response, 409, {
+            error: hasRecordedPayment(duplicate)
+                ? 'That M-Pesa code has already been recorded against this rent.'
+                : 'That M-Pesa code has already been submitted and is waiting for verification.'
+        });
+        return;
+    }
+
+    const claim = {
+        id: `claim-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,
+        tenantId: knownTenant?.id || '',
+        tenantName,
+        tenantEmail,
+        tenantPhone: tenantPhone || knownTenant?.phone || null,
+        payerPhone,
+        propertyId: property.id,
+        propertyName: property.name,
+        location: property.location,
+        unit,
+        period,
+        monthKey: periodKey,
+        dueDate: `${periodKey}-05`,
+        amount: rentForPeriod,
+        paidAmount: 0,
+        requestedAmount: amount,
+        method: 'Pochi la Biashara',
+        reference,
+        providerReceipt: reference,
+        status: 'Awaiting verification',
+        paymentRequestStatus: 'pending',
+        source: 'payment-page',
+        createdAt: new Date().toISOString()
+    };
+
+    payments.push(claim);
+    try {
+        await persistPayments();
+    } catch (error) {
+        const index = payments.indexOf(claim);
+
+        if (index !== -1) {
+            payments.splice(index, 1);
+        }
+
+        console.error(`Public Pochi claim ${claim.id} could not be saved: ${error.message}`);
+        sendJson(response, 500, { error: 'Your payment could not be submitted just now. Please try again.' });
+        return;
+    }
+
+    paymentThrottle.fail(getClientKey(request));
+
+    const bill = buildRentBill({
+        propertyId: property.id,
+        unit,
+        email: tenantEmail,
+        periodKey
+    });
+
+    sendJson(response, 201, {
+        message: `Submitted. Your landlord will verify M-Pesa code ${reference} before this rent is recorded.`,
+        claim: {
+            id: claim.id,
+            amount: claim.requestedAmount,
+            period: claim.period,
+            reference: claim.reference,
+            status: claim.paymentRequestStatus
+        },
+        bill: bill.body,
+        receivingNumber: getMpesaReceivingNumber()
+    });
+};
+
 const handlePaymentRequestList = (request, response) => {
     sendJson(response, 200, payments
         .filter((payment) => ['pending', 'callback_review'].includes(payment.paymentRequestStatus))
@@ -1172,6 +1379,201 @@ const handlePaymentRequestRejection = async (request, response) => {
     sendJson(response, 200, { message: 'Payment request rejected.' });
 };
 
+/* The landlord's version of the status poll: asks Safaricom how a stuck
+   request actually ended, so one whose callback was lost can still be
+   settled without the tenant paying again. */
+const handlePaymentRequestCheck = async (request, response) => {
+    if (!isSameOriginRequest(request)) {
+        sendJson(response, 403, { error: 'Cross-origin payment checks are not allowed.' });
+        return;
+    }
+
+    const paymentRequest = payments.find((payment) => (
+        payment.id === request.params.requestId && payment.method === 'M-Pesa STK Push'
+    ));
+
+    if (!paymentRequest) {
+        sendJson(response, 404, { error: 'That Safaricom payment request could not be found.' });
+        return;
+    }
+
+    if (paymentRequest.stkStatus === 'paid' || paymentRequest.stkStatus === 'failed') {
+        sendJson(response, 409, { error: `That payment request is already settled as "${paymentRequest.status}".` });
+        return;
+    }
+
+    if (!paymentRequest.checkoutRequestId) {
+        sendJson(response, 409, { error: 'Safaricom never accepted this request, so there is no transaction to check.' });
+        return;
+    }
+
+    /* A callback that arrived but could not be trusted is reported, not
+       applied, so a mismatched amount or payer still gets a human decision
+       through the confirm and reject buttons. */
+    if (['callback_review', 'processing', 'finalization_pending'].includes(paymentRequest.stkStatus)) {
+        paymentRequest.lastQueriedAt = new Date().toISOString();
+
+        let outcome;
+        try {
+            outcome = await queryDarajaStkStatus({ checkoutRequestId: paymentRequest.checkoutRequestId });
+        } catch (error) {
+            sendJson(response, 502, { error: `Safaricom could not be asked: ${error.message}` });
+            return;
+        }
+
+        if (!outcome.definitive) {
+            sendJson(response, 200, {
+                message: `Safaricom has no final answer yet: ${outcome.resultDescription} This request is unchanged.`,
+                request: paymentRequest
+            });
+            return;
+        }
+
+        sendJson(response, 200, {
+            message: String(outcome.resultCode) === '0'
+                ? `Safaricom reports this payment was completed (${paymentRequest.checkoutRequestId}). It was left for your review because an earlier callback did not match this request, so verify it in the M-Pesa statement before recording it.`
+                : `Safaricom reports this payment was not completed: ${describeStkFailure(outcome.resultCode, outcome.resultDescription)} It was left for your review; reject it if you agree.`,
+            request: paymentRequest
+        });
+        return;
+    }
+
+    const outcome = await applyStkQueryOutcome(paymentRequest);
+
+    sendJson(response, 200, {
+        message: outcome.changed
+            ? (paymentRequest.stkStatus === 'paid'
+                ? 'Safaricom confirmed this payment and it has been recorded in the rent ledger.'
+                : `Safaricom closed this payment request: ${outcome.note}`)
+            : `Safaricom has no final answer yet: ${outcome.note}`,
+        request: paymentRequest
+    });
+};
+
+/* Safaricom sends what a successful transaction actually carried — amount,
+   receipt, payer — as a list of name/value items. */
+const readCallbackMetadata = (callback) => new Map(
+    (Array.isArray(callback.CallbackMetadata?.Item) ? callback.CallbackMetadata.Item : [])
+        .filter((item) => item && typeof item.Name === 'string')
+        .map((item) => [item.Name, item.Value])
+);
+
+/* Public configuration the pay-rent page needs to show tenants where to send
+   money. Only non-secret values are exposed; the receiving number is the
+   personal M-Pesa number rent is sent to, not the Daraja shortcode. */
+const handleMpesaConfig = (request, response) => {
+    let businessShortCode = '';
+    let stkConfigured = false;
+
+    try {
+        businessShortCode = getDarajaSettings().shortcode;
+        stkConfigured = true;
+    } catch (error) {
+        /* STK Push simply is not configured yet; the receiving number is still
+           returned so tenants can pay manually. */
+        stkConfigured = false;
+    }
+
+    sendJson(response, 200, {
+        receivingNumber: getMpesaReceivingNumber(),
+        businessShortCode,
+        stkConfigured
+    });
+};
+
+/* A rent bill is a read-only view of what one payer owes for one property,
+   unit and rent period. It is public so the pay-rent page can show it before
+   asking for an STK Push, but it returns only figures for the details supplied
+   — never another tenant's name or payment history. The balance uses exactly
+   the same rent-period grouping as the payment checks, so the bill and the
+   amount the server will accept cannot disagree. */
+const buildRentBill = (input) => {
+    const propertyId = String(input.propertyId || '').trim();
+    const unit = String(input.unit || '').trim();
+    const email = normaliseEmail(input.email);
+    const property = properties.find((item) => item.id === propertyId);
+
+    if (!property) {
+        return { code: 404, body: { error: 'Choose a valid property.' } };
+    }
+
+    if (!unit) {
+        return { code: 400, body: { error: 'Enter the unit or house number to see your bill.' } };
+    }
+
+    if (!isValidEmail(email)) {
+        return { code: 400, body: { error: 'Enter a valid email address to see your bill.' } };
+    }
+
+    const { periodKey, period } = getPeriodDetails(input.periodKey);
+    const knownTenant = findTenantByEmail(email);
+    const rent = Math.round(Number(knownTenant?.monthlyRent) || Number(property.monthlyRent) || 0);
+    const rentPeriod = {
+        tenantId: knownTenant?.id || '',
+        tenantEmail: email,
+        propertyId: property.id,
+        unit,
+        monthKey: periodKey
+    };
+    const received = totalPaidForRentPeriod(payments, rentPeriod);
+    /* Money asked for but not yet confirmed is listed separately from rent
+       received: STK Pushes and Pochi claims reserve part of the balance but
+       are not the same as rent paid. */
+    const stkReserved = reservedRentForPeriod(payments, rentPeriod, 'M-Pesa STK Push');
+    const pochiReserved = reservedRentForPeriod(payments, rentPeriod, 'Pochi la Biashara');
+    const reserved = stkReserved + pochiReserved;
+    const balance = Math.max(0, rent - received - reserved);
+    const unitCode = String(unit).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6) || 'UNIT';
+    const propertyCode = property.id.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4) || 'PROP';
+    let status = 'Unpaid';
+
+    if (rent > 0 && received >= rent) {
+        status = 'Paid in full';
+    } else if (reserved > 0 && received + reserved >= rent) {
+        status = 'Awaiting confirmation';
+    } else if (received > 0 || reserved > 0) {
+        status = 'Partially paid';
+    }
+
+    return {
+        code: 200,
+        body: {
+            billNumber: `BILL-${periodKey.replace('-', '')}-${unitCode}-${propertyCode}`,
+            status,
+            propertyName: property.name,
+            location: property.location || '',
+            unit,
+            period,
+            periodKey,
+            dueDate: `${periodKey}-05`,
+            issuedOn: `${periodKey}-01`,
+            email,
+            rent,
+            received,
+            reserved,
+            balance,
+            hasTenantRecord: Boolean(knownTenant),
+            items: [
+                { label: `Monthly rent — ${property.name} (${unit})`, amount: rent },
+                { label: 'Rent received', amount: received, credit: true },
+                { label: 'Awaiting M-Pesa STK confirmation', amount: stkReserved, credit: true },
+                { label: 'Pochi payment awaiting verification', amount: pochiReserved, credit: true }
+            ].filter((item) => item.amount > 0)
+        }
+    };
+};
+
+const handleRentBill = (request, response) => {
+    const result = buildRentBill({
+        propertyId: queryValue(request.query.property),
+        unit: queryValue(request.query.unit),
+        email: queryValue(request.query.email),
+        periodKey: queryValue(request.query.period)
+    });
+
+    sendJson(response, result.code, result.body);
+};
+
 const handleMpesaCallback = async (request, response) => {
     if (!isValidDarajaCallbackToken(request.query.token)) {
         sendJson(response, 403, { ResultCode: 1, ResultDesc: 'Invalid callback token.' });
@@ -1201,6 +1603,36 @@ const handleMpesaCallback = async (request, response) => {
     }
 
     if (paymentRequest.stkStatus === 'paid') {
+        /* A payment recorded through the status query settled under the
+           checkout reference because the query carries no receipt. If the
+           callback turns up afterwards, it can hand over the real one without
+           the money ever being recorded twice. */
+        const metadata = readCallbackMetadata(callback);
+        const receipt = String(metadata.get('MpesaReceiptNumber') || '').trim().toUpperCase();
+        const amount = Number(metadata.get('Amount'));
+
+        if (Number(callback.ResultCode) === 0
+            && paymentRequest.providerVerifiedVia === 'stk-query'
+            && receipt
+            && /^[A-Z0-9]{6,20}$/.test(receipt)
+            && amount === Number(paymentRequest.requestedAmount)) {
+            const recorded = payments.find((payment) => (
+                hasRecordedPayment(payment)
+                && payment.method === 'M-Pesa STK Push'
+                && payment.reference === checkoutRequestId
+            ));
+
+            if (recorded) {
+                recorded.reference = receipt;
+            }
+
+            paymentRequest.reference = receipt;
+            paymentRequest.providerReceipt = receipt;
+            paymentRequest.updatedAt = new Date().toISOString();
+        } else if (paymentRequest.providerVerifiedVia === 'stk-query' && Number(callback.ResultCode) === 0) {
+            console.warn(`Late callback for query-confirmed ${paymentRequest.id} did not match; the checkout reference was kept.`);
+        }
+
         try {
             await persistPayments();
         } catch (error) {
@@ -1211,12 +1643,12 @@ const handleMpesaCallback = async (request, response) => {
         return;
     }
 
-    if (activeMpesaCallbacks.has(checkoutRequestId)) {
+    if (safaricomCheckoutsInFlight.has(checkoutRequestId)) {
         sendJson(response, 200, { ResultCode: 0, ResultDesc: 'Callback processing.' });
         return;
     }
 
-    activeMpesaCallbacks.add(checkoutRequestId);
+    safaricomCheckoutsInFlight.add(checkoutRequestId);
     try {
         const resultCode = Number(callback.ResultCode);
         if (resultCode !== 0) {
@@ -1237,11 +1669,7 @@ const handleMpesaCallback = async (request, response) => {
             throw new Error(`Daraja configuration is unavailable while processing a successful callback: ${error.message}`);
         }
 
-        const metadata = new Map(
-            (Array.isArray(callback.CallbackMetadata?.Item) ? callback.CallbackMetadata.Item : [])
-                .filter((item) => item && typeof item.Name === 'string')
-                .map((item) => [item.Name, item.Value])
-        );
+        const metadata = readCallbackMetadata(callback);
         const amount = Number(metadata.get('Amount'));
         const receipt = String(metadata.get('MpesaReceiptNumber') || '').trim().toUpperCase();
         const payerPhone = normalizeKenyanPhone(String(metadata.get('PhoneNumber') || ''));
@@ -1284,6 +1712,9 @@ const handleMpesaCallback = async (request, response) => {
             unit: paymentRequest.unit,
             periodKey: paymentRequest.monthKey,
             paidAmount: amount,
+            /* The rent this request was opened against, which may be the
+               tenant's own agreed rent rather than the property's. */
+            rent: paymentRequest.amount,
             method: 'M-Pesa STK Push',
             reference: receipt,
             source: 'mpesa-stk-callback'
@@ -1325,11 +1756,157 @@ const handleMpesaCallback = async (request, response) => {
         console.error(`Safaricom callback processing failed: ${error.message}`);
         sendJson(response, 500, { ResultCode: 1, ResultDesc: 'Callback processing failed; please retry.' });
     } finally {
-        activeMpesaCallbacks.delete(checkoutRequestId);
+        safaricomCheckoutsInFlight.delete(checkoutRequestId);
     }
 };
 
-const handlePaymentRequestStatus = (request, response) => {
+/* What Safaricom's own result codes mean to the person reading them, so the
+   reason a prompt failed is said plainly rather than as a provider code. */
+const describeStkFailure = (resultCode, resultDescription) => {
+    const messages = {
+        1: 'The M-Pesa balance was too low for this payment.',
+        17: 'Safaricom could not process this payment. Try again later.',
+        1001: 'Another M-Pesa session was already open on that phone, so this prompt could not be completed.',
+        1019: 'The M-Pesa prompt expired before it was answered.',
+        1031: 'The M-Pesa PIN was not entered in time, so the payment was not completed.',
+        1032: 'The M-Pesa prompt was cancelled, so no money was taken.',
+        1037: 'The phone could not be reached with the M-Pesa prompt.',
+        2001: 'The M-Pesa PIN entered was not correct, so the payment was not completed.'
+    };
+
+    return messages[Number(resultCode)] || resultDescription || 'The M-Pesa payment was not completed.';
+};
+
+const stkQueryFirstDelayMs = 15 * 1000;
+const stkQueryIntervalMs = 10 * 1000;
+
+const millisecondsSince = (isoTimestamp) => {
+    const parsed = Date.parse(isoTimestamp || '');
+
+    /* A timestamp that was never written reads as infinitely old, so an
+       unqueried request is always due its first check. */
+    return Number.isFinite(parsed) ? Date.now() - parsed : Number.POSITIVE_INFINITY;
+};
+
+/* A pending request is only asked about once the prompt has had time to
+   reach the phone, and never more often than the interval, so the tenant's
+   page polling every few seconds never hammers Safaricom. */
+const shouldAutoQueryPaymentRequest = (paymentRequest) => (
+    paymentRequest.stkStatus === 'pending'
+    && paymentRequest.checkoutRequestId
+    && !paymentRequest.reference
+    && millisecondsSince(paymentRequest.updatedAt || paymentRequest.createdAt) >= stkQueryFirstDelayMs
+    && millisecondsSince(paymentRequest.lastQueriedAt) >= stkQueryIntervalMs
+);
+
+/* Asks Safaricom how an STK request ended and writes that answer into the
+   rent ledger. Never throws: a query Safaricom cannot answer simply leaves
+   the payment request exactly as it was, ready for the next attempt. */
+const applyStkQueryOutcome = async (paymentRequest) => {
+    const checkoutRequestId = paymentRequest.checkoutRequestId;
+
+    if (safaricomCheckoutsInFlight.has(checkoutRequestId)) {
+        return { changed: false, note: 'A Safaricom answer for this payment is already being processed.' };
+    }
+
+    safaricomCheckoutsInFlight.add(checkoutRequestId);
+    try {
+        paymentRequest.lastQueriedAt = new Date().toISOString();
+
+        let outcome;
+        try {
+            outcome = await queryDarajaStkStatus({ checkoutRequestId });
+        } catch (error) {
+            return { changed: false, note: error.message };
+        }
+
+        if (!outcome.definitive) {
+            return { changed: false, note: outcome.resultDescription };
+        }
+
+        if (String(outcome.resultCode) !== '0') {
+            const failureReason = describeStkFailure(outcome.resultCode, outcome.resultDescription).slice(0, 250);
+
+            paymentRequest.stkStatus = 'failed';
+            paymentRequest.paymentRequestStatus = 'failed';
+            paymentRequest.status = 'STK Push cancelled';
+            paymentRequest.failureReason = failureReason;
+            paymentRequest.lastQueryResultCode = String(outcome.resultCode);
+            paymentRequest.updatedAt = new Date().toISOString();
+
+            try {
+                await persistPayments();
+            } catch (error) {
+                console.error(`Queried STK failure ${paymentRequest.id} could not be persisted: ${error.message}`);
+            }
+
+            return { changed: true, note: failureReason };
+        }
+
+        /* Safaricom finished this payment. The query carries no receipt, so
+           the checkout reference the money settled under stands in for one
+           until a late callback hands over the real receipt. */
+        const result = await recordPayment({
+            tenantName: paymentRequest.tenantName,
+            tenantEmail: paymentRequest.tenantEmail,
+            tenantPhone: paymentRequest.tenantPhone || paymentRequest.payerPhone,
+            payerPhone: paymentRequest.payerPhone,
+            tenantId: paymentRequest.tenantId,
+            propertyId: paymentRequest.propertyId,
+            unit: paymentRequest.unit,
+            periodKey: paymentRequest.monthKey,
+            paidAmount: paymentRequest.requestedAmount,
+            /* The rent this request was opened against, which may be the
+               tenant's own agreed rent rather than the property's. */
+            rent: paymentRequest.amount,
+            method: 'M-Pesa STK Push',
+            reference: checkoutRequestId,
+            source: 'mpesa-stk-query'
+        });
+
+        if (result.code !== 201 && result.code !== 200) {
+            paymentRequest.stkStatus = 'callback_review';
+            paymentRequest.paymentRequestStatus = 'callback_review';
+            paymentRequest.status = 'Safaricom payment needs ledger review';
+            paymentRequest.failureReason = result.body.error || 'Safaricom confirmed payment, but the rent ledger could not record it.';
+            paymentRequest.updatedAt = new Date().toISOString();
+
+            try {
+                await persistPayments();
+            } catch (error) {
+                console.error(`Queried STK payment ${paymentRequest.id} could not be marked for review: ${error.message}`);
+            }
+
+            return { changed: true, note: paymentRequest.failureReason };
+        }
+
+        paymentRequest.stkStatus = 'paid';
+        paymentRequest.paymentRequestStatus = 'paid';
+        paymentRequest.status = 'Paid';
+        paymentRequest.paidOn = result.body.payment.paidOn;
+        paymentRequest.reference = checkoutRequestId;
+        paymentRequest.receiptNumber = result.body.payment.receiptNumber;
+        paymentRequest.providerVerifiedVia = 'stk-query';
+        paymentRequest.confirmedAt = new Date().toISOString();
+        paymentRequest.updatedAt = new Date().toISOString();
+
+        try {
+            await persistPayments();
+        } catch (error) {
+            paymentRequest.stkStatus = 'finalization_pending';
+            paymentRequest.paymentRequestStatus = 'callback_review';
+            paymentRequest.failureReason = 'Safaricom payment was recorded; final request status needs a callback retry.';
+            console.error(`Safaricom payment recorded via query ${checkoutRequestId} could not be finalized: ${error.message}`);
+            return { changed: true, note: paymentRequest.failureReason };
+        }
+
+        return { changed: true, note: 'Safaricom confirmed this payment.' };
+    } finally {
+        safaricomCheckoutsInFlight.delete(checkoutRequestId);
+    }
+};
+
+const handlePaymentRequestStatus = async (request, response) => {
     const paymentRequest = payments.find((payment) => (
         payment.id === request.params.requestId && payment.method === 'M-Pesa STK Push'
     ));
@@ -1339,14 +1916,41 @@ const handlePaymentRequestStatus = (request, response) => {
         return;
     }
 
+    /* A callback can be lost on the way back, so once the prompt has had time
+       to reach the phone, the poll itself asks Safaricom how the request
+       ended and settles it the same way the callback would have. */
+    if (shouldAutoQueryPaymentRequest(paymentRequest)) {
+        try {
+            await applyStkQueryOutcome(paymentRequest);
+        } catch (error) {
+            console.error(`STK status query for ${paymentRequest.id} failed unexpectedly: ${error.message}`);
+        }
+    }
+
     if (paymentRequest.stkStatus === 'paid') {
+        const receivingNumber = getMpesaReceivingNumber();
+
+        /* The confirmation modal and the gated receipt need the whole story:
+           what was received, the number the tenant paid from, and the number
+           the rent was received on. */
         sendJson(response, 200, {
             state: 'paid',
-            message: 'Safaricom confirmed the payment.',
+            message: 'Safaricom confirmed the payment. Your rent has been received.',
             receiptNumber: paymentRequest.receiptNumber,
             reference: paymentRequest.reference,
             paidAmount: paymentRequest.requestedAmount,
-            paidOn: paymentRequest.paidOn
+            paidOn: paymentRequest.paidOn,
+            period: paymentRequest.period,
+            amount: paymentRequest.amount,
+            periodPaid: totalPaidForRentPeriod(payments, paymentRequest),
+            periodOutstanding: rentPeriodOutstanding(payments, paymentRequest),
+            method: paymentRequest.method,
+            payerPhone: paymentRequest.payerPhone,
+            tenantName: paymentRequest.tenantName,
+            propertyName: paymentRequest.propertyName,
+            unit: paymentRequest.unit,
+            receivingNumber,
+            paidTo: receivingNumber
         });
         return;
     }
@@ -1699,9 +2303,40 @@ const buildTenantPortal = (tenant) => {
             lastPaymentOn: summary.lastPaymentOn,
             isCurrentMonthPaid: rent > 0 && paidThisMonth >= rent
         },
-        payments: tenantPayments.slice().sort((first, second) => String(second.paidOn).localeCompare(String(first.paidOn))),
+        /* Each payment carries the balance of the rent period it was paid
+           towards, so a receipt can show what is still owed for that month and
+           not only the amount of this one payment. */
+        payments: tenantPayments
+            .slice()
+            .sort((first, second) => String(second.paidOn).localeCompare(String(first.paidOn)))
+            .map((payment) => ({
+                ...payment,
+                periodPaid: totalPaidForRentPeriod(payments, payment),
+                periodOutstanding: rentPeriodOutstanding(payments, payment)
+            })),
         maintenance: getTenantMaintenanceRequests(tenant.id).map(summariseMaintenanceRequest),
-        openRequestCount: openRequests.length
+        openRequestCount: openRequests.length,
+        /* Pochi payments the tenant has recorded but that are not yet verified
+           (or were turned down), so they can see what is still waiting. */
+        claims: payments
+            .filter((payment) => paymentBelongsToTenant(payment, tenant))
+            .filter((payment) => payment.method === 'Pochi la Biashara' && !hasRecordedPayment(payment))
+            .filter((payment) => ['pending', 'callback_review', 'rejected'].includes(payment.paymentRequestStatus))
+            .sort((first, second) => String(second.createdAt).localeCompare(String(first.createdAt)))
+            .map((payment) => ({
+                id: payment.id,
+                amount: payment.requestedAmount,
+                period: payment.period,
+                reference: payment.reference,
+                submittedAt: payment.createdAt,
+                status: payment.paymentRequestStatus,
+                statusLabel: payment.paymentRequestStatus === 'rejected'
+                    ? 'Not verified'
+                    : (payment.paymentRequestStatus === 'callback_review' ? 'Needs reconciliation' : 'Awaiting verification')
+            })),
+        /* The M-Pesa number rent is received on, shown to the tenant and
+           printed on every receipt. */
+        receivingNumber: getMpesaReceivingNumber()
     };
 };
 
@@ -1907,6 +2542,146 @@ const handleTenantPaymentSubmission = async (request, response) => {
     });
 };
 
+/* A tenant who has already sent rent to the Pochi la Biashara number records
+   the M-Pesa confirmation code here. Nothing counts as paid yet: the claim
+   waits for the landlord to verify it against the M-Pesa statement, which is
+   what the dashboard's "awaiting verification" table is for. */
+const handleTenantPochiClaim = async (request, response) => {
+    if (!isSameOriginRequest(request)) {
+        sendJson(response, 403, { error: 'Cross-origin payment submissions are not allowed.' });
+        return;
+    }
+
+    const tenant = findTenant(request.tenantId);
+    const property = properties.find((item) => item.id === tenant.propertyId) || null;
+
+    if (!property) {
+        sendJson(response, 400, {
+            error: 'Your tenancy is not linked to a property yet, so a Pochi payment cannot be submitted. Contact your landlord.'
+        });
+        return;
+    }
+
+    const amount = Math.round(Number(request.body.amount));
+    const unit = String(request.body.unit || tenant.unit || '').trim();
+    const reference = String(request.body.reference || '').trim().toUpperCase();
+    const payerPhone = normalizeKenyanPhone(request.body.phoneNumber || tenant.phone);
+    const rentForPeriod = Math.max(0, Number(tenant.monthlyRent) || Number(property.monthlyRent) || 0);
+
+    if (!Number.isFinite(amount) || amount <= 0 || amount > rentForPeriod) {
+        sendJson(response, 400, { error: `Enter the amount you sent, up to KSh ${rentForPeriod.toLocaleString('en-KE')}.` });
+        return;
+    }
+
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(String(request.body.periodKey || '').trim())) {
+        sendJson(response, 400, { error: 'Choose the rent period you paid for.' });
+        return;
+    }
+
+    if (!unit || unit.length > 30) {
+        sendJson(response, 400, { error: 'Enter the unit or house number.' });
+        return;
+    }
+
+    if (!/^[A-Z0-9]{4,20}$/.test(reference)) {
+        sendJson(response, 400, { error: 'Enter the M-Pesa confirmation code, such as SJL4K9ZQ2M.' });
+        return;
+    }
+
+    if (!payerPhone) {
+        sendJson(response, 400, { error: 'Enter the Safaricom number you sent the money from.' });
+        return;
+    }
+
+    /* The same M-Pesa code must not be claimed twice, whether the earlier one
+       is still waiting or has already been recorded against the rent. */
+    const duplicate = payments.find((payment) => (
+        paymentBelongsToTenant(payment, tenant)
+        && payment.method === 'Pochi la Biashara'
+        && String(payment.reference || '').toUpperCase() === reference
+    ));
+
+    if (duplicate) {
+        sendJson(response, 409, {
+            error: hasRecordedPayment(duplicate)
+                ? 'That M-Pesa code has already been recorded against your rent.'
+                : 'That M-Pesa code has already been submitted and is waiting for verification.'
+        });
+        return;
+    }
+
+    const { periodKey, period } = getPeriodDetails(String(request.body.periodKey).trim());
+    const rentPeriod = {
+        tenantId: tenant.id,
+        tenantEmail: tenant.email,
+        propertyId: property.id,
+        unit,
+        monthKey: periodKey
+    };
+    const outstanding = Math.max(0, rentForPeriod
+        - totalPaidForRentPeriod(payments, rentPeriod) - reservedRentForPeriod(payments, rentPeriod));
+
+    if (outstanding <= 0 || amount > outstanding) {
+        sendJson(response, 400, {
+            error: outstanding <= 0
+                ? 'This rent period is already paid or has a payment waiting for verification. Do not pay twice.'
+                : `The balance you can still pay is KSh ${outstanding.toLocaleString('en-KE')}.`
+        });
+        return;
+    }
+
+    const claim = {
+        id: `claim-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,
+        tenantId: tenant.id,
+        tenantName: tenant.fullName,
+        tenantEmail: tenant.email,
+        tenantPhone: tenant.phone || null,
+        payerPhone,
+        propertyId: property.id,
+        propertyName: property.name,
+        location: property.location,
+        unit,
+        period,
+        monthKey: periodKey,
+        requestedAmount: amount,
+        method: 'Pochi la Biashara',
+        reference,
+        providerReceipt: reference,
+        status: 'Awaiting verification',
+        paymentRequestStatus: 'pending',
+        source: 'tenant-portal',
+        createdAt: new Date().toISOString()
+    };
+
+    payments.push(claim);
+
+    try {
+        await persistPayments();
+    } catch (error) {
+        const index = payments.indexOf(claim);
+
+        if (index !== -1) {
+            payments.splice(index, 1);
+        }
+
+        console.error(`Pochi claim ${claim.id} could not be saved: ${error.message}`);
+        sendJson(response, 500, { error: 'Your payment could not be submitted just now. Please try again.' });
+        return;
+    }
+
+    sendJson(response, 201, {
+        message: `Submitted. Your landlord will verify the M-Pesa code ${reference} before your rent is recorded.`,
+        claim: {
+            id: claim.id,
+            amount: claim.requestedAmount,
+            period: claim.period,
+            reference: claim.reference,
+            status: claim.paymentRequestStatus
+        },
+        portal: buildTenantPortal(tenant)
+    });
+};
+
 const handleTenantMaintenanceList = (request, response) => {
     const listed = getTenantMaintenanceRequests(request.tenantId).map(summariseMaintenanceRequest);
 
@@ -2091,6 +2866,325 @@ const handleMaintenanceUpdate = async (request, response) => {
     });
 };
 
+/* ---- expenses and net income ---------------------------------------- */
+
+/* A fixed category list keeps the "spending by category" breakdown tidy;
+   anything unrecognised is filed under Other rather than creating a new
+   bucket every time somebody types a variation. */
+const expenseCategories = [
+    'Repairs & maintenance',
+    'Utilities',
+    'Management fees',
+    'Insurance',
+    'Property tax',
+    'Security',
+    'Cleaning',
+    'Supplies',
+    'Marketing',
+    'Other'
+];
+const expenseCategorySet = new Set(expenseCategories);
+const expenseMethods = new Set(['Cash', 'M-Pesa', 'Bank Transfer', 'Card', 'Cheque', 'Other']);
+
+const findExpense = (expenseId) => expenses.find((expense) => expense.id === expenseId) || null;
+
+const expenseMonthKey = (expense) => String(expense?.expenseDate || '').slice(0, 7);
+
+const currentMonthKeyNow = () => {
+    const now = new Date();
+
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+};
+
+const labelForMonthKey = (monthKey) => {
+    const match = String(monthKey || '').match(/^(\d{4})-(\d{2})$/);
+
+    if (!match) {
+        return String(monthKey || '');
+    }
+
+    const month = Number(match[2]);
+
+    return `${monthNames[month - 1] || 'Current'} ${match[1]}`;
+};
+
+const buildExpenseFromPayload = (payload, existing = null) => {
+    const pick = (key, fallback = '') => (payload[key] === undefined ? fallback : String(payload[key] || '').trim());
+    const propertyId = pick('propertyId', existing?.propertyId);
+    const property = properties.find((item) => item.id === propertyId);
+    const amountWasProvided = payload.amount !== undefined && String(payload.amount).trim() !== '';
+    const amount = amountWasProvided
+        ? Math.round(Number(payload.amount))
+        : Math.round(Number(existing?.amount) || 0);
+    const requestedCategory = pick('category', existing?.category);
+    const requestedMethod = pick('method', existing?.method);
+
+    return {
+        propertyId,
+        propertyName: property?.name || existing?.propertyName || '',
+        category: expenseCategorySet.has(requestedCategory) ? requestedCategory : 'Other',
+        description: pick('description', existing?.description),
+        vendor: pick('vendor', existing?.vendor),
+        amount,
+        /* The day the money left, which is what an expense is dated by, not the
+           day the record was typed in. */
+        expenseDate: pick('expenseDate', existing?.expenseDate) || new Date().toISOString().slice(0, 10),
+        method: expenseMethods.has(requestedMethod) ? requestedMethod : (requestedMethod ? 'Other' : ''),
+        notes: pick('notes', existing?.notes)
+    };
+};
+
+const describeExpenseProblem = (candidate) => {
+    if (!candidate.propertyId) {
+        return 'Choose the property this expense belongs to.';
+    }
+
+    if (!properties.some((property) => property.id === candidate.propertyId)) {
+        return 'That property could not be found.';
+    }
+
+    if (!Number.isFinite(candidate.amount) || candidate.amount <= 0) {
+        return 'Enter the amount you spent, as a number greater than zero.';
+    }
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(candidate.expenseDate)) {
+        return 'Enter the date the money was spent as YYYY-MM-DD.';
+    }
+
+    if (!candidate.description) {
+        return 'Add a short description of what the expense was for.';
+    }
+
+    if (candidate.description.length > 200) {
+        return 'Keep the description under 200 characters.';
+    }
+
+    if (candidate.vendor.length > 120) {
+        return 'Keep the payee name under 120 characters.';
+    }
+
+    if (candidate.notes.length > 2000) {
+        return 'Keep the notes under 2000 characters.';
+    }
+
+    return '';
+};
+
+const summariseExpense = (expense) => ({
+    ...expense,
+    amount: Math.max(0, Number(expense.amount) || 0),
+    monthKey: expenseMonthKey(expense)
+});
+
+/* Rent collected for a month, optionally narrowed to one property. Only money
+   that actually arrived counts, so an unpaid Pochi claim never flatters the
+   net income figure. */
+const collectedRentForMonth = (monthKey, propertyId = '') => payments
+    .filter(hasRecordedPayment)
+    .filter((payment) => !propertyId || payment.propertyId === propertyId)
+    .filter((payment) => String(payment.monthKey || '') === monthKey)
+    .reduce((total, payment) => total + (Number(payment.paidAmount) || 0), 0);
+
+const expensesForMonth = (monthKey, propertyId = '') => expenses
+    .filter((expense) => !propertyId || expense.propertyId === propertyId)
+    .filter((expense) => expenseMonthKey(expense) === monthKey)
+    .reduce((total, expense) => total + (Number(expense.amount) || 0), 0);
+
+/* The last few months of collected rent, expenses and the difference between
+   them, newest first, so the trend table always ends on the selected month. */
+const buildNetIncomeMonths = (propertyId, endMonthKey, count) => {
+    const match = String(endMonthKey || '').match(/^(\d{4})-(\d{2})$/);
+    const now = new Date();
+    let year = match ? Number(match[1]) : now.getFullYear();
+    let month = match ? Number(match[2]) : now.getMonth() + 1;
+    const rows = [];
+
+    for (let index = 0; index < count; index += 1) {
+        const key = `${year}-${String(month).padStart(2, '0')}`;
+        const collected = collectedRentForMonth(key, propertyId);
+        const spent = expensesForMonth(key, propertyId);
+
+        rows.push({
+            month: key,
+            label: labelForMonthKey(key),
+            collected,
+            expenses: spent,
+            net: collected - spent
+        });
+
+        month -= 1;
+
+        if (month === 0) {
+            month = 12;
+            year -= 1;
+        }
+    }
+
+    return rows;
+};
+
+const handleExpenseList = (request, response) => {
+    const requestedProperty = queryValue(request.query.property);
+    const requestedCategory = queryValue(request.query.category);
+    const requestedMonth = queryValue(request.query.month) || currentMonthKeyNow();
+    const searchTerm = queryValue(request.query.q).trim().toLowerCase();
+
+    /* Property scope drives every figure, so a landlord looking at one property
+       sees that property's net income rather than the whole portfolio's. */
+    const scoped = expenses
+        .map(summariseExpense)
+        .filter((expense) => !requestedProperty || expense.propertyId === requestedProperty);
+
+    const listed = scoped
+        .filter((expense) => {
+            const categoryMatches = !requestedCategory || expense.category === requestedCategory;
+            const searchMatches = !searchTerm || [
+                expense.description,
+                expense.vendor,
+                expense.propertyName,
+                expense.category,
+                expense.notes
+            ].some((value) => String(value || '').toLowerCase().includes(searchTerm));
+
+            return categoryMatches && searchMatches;
+        })
+        .sort((first, second) => (
+            String(second.expenseDate).localeCompare(String(first.expenseDate))
+            || String(second.createdAt).localeCompare(String(first.createdAt))
+        ));
+
+    const monthExpenses = scoped.filter((expense) => expense.monthKey === requestedMonth);
+    const expenseTotal = monthExpenses.reduce((total, expense) => total + expense.amount, 0);
+    const collected = collectedRentForMonth(requestedMonth, requestedProperty);
+    const yearExpense = scoped
+        .filter((expense) => expense.monthKey.slice(0, 4) === requestedMonth.slice(0, 4))
+        .reduce((total, expense) => total + expense.amount, 0);
+
+    const byCategory = expenseCategories
+        .map((category) => {
+            const matching = monthExpenses.filter((expense) => expense.category === category);
+
+            return {
+                category,
+                total: matching.reduce((total, expense) => total + expense.amount, 0),
+                count: matching.length
+            };
+        })
+        .filter((row) => row.count)
+        .sort((first, second) => second.total - first.total);
+
+    sendJson(response, 200, {
+        expenses: listed,
+        counts: {
+            all: scoped.length,
+            filtered: listed.length,
+            month: monthExpenses.length
+        },
+        categories: expenseCategories,
+        methods: [...expenseMethods],
+        totals: {
+            month: requestedMonth,
+            monthLabel: labelForMonthKey(requestedMonth),
+            expenseTotal,
+            expenseCount: monthExpenses.length,
+            collected,
+            netIncome: collected - expenseTotal,
+            yearExpense,
+            allTimeExpense: scoped.reduce((total, expense) => total + expense.amount, 0)
+        },
+        byCategory,
+        months: buildNetIncomeMonths(requestedProperty, requestedMonth, 6)
+    });
+};
+
+const handleExpenseCreate = async (request, response) => {
+    const candidate = buildExpenseFromPayload(request.body);
+    const problem = describeExpenseProblem(candidate);
+
+    if (problem) {
+        sendJson(response, 400, { error: problem });
+        return;
+    }
+
+    const now = new Date().toISOString();
+    const created = {
+        id: `exp-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,
+        ...candidate,
+        createdAt: now,
+        updatedAt: now
+    };
+
+    expenses.push(created);
+
+    try {
+        await persistExpenses();
+    } catch (error) {
+        expenses.pop();
+        sendJson(response, 500, { error: 'The expense could not be saved. Please try again.' });
+        return;
+    }
+
+    sendJson(response, 201, {
+        message: 'Expense recorded.',
+        expense: summariseExpense(created)
+    });
+};
+
+const handleExpenseUpdate = async (request, response) => {
+    const found = findExpense(request.params.expenseId);
+
+    if (!found) {
+        sendJson(response, 404, { error: 'That expense could not be found.' });
+        return;
+    }
+
+    const candidate = buildExpenseFromPayload(request.body, found);
+    const problem = describeExpenseProblem(candidate);
+
+    if (problem) {
+        sendJson(response, 400, { error: problem });
+        return;
+    }
+
+    const previous = { ...found };
+
+    Object.assign(found, candidate, { updatedAt: new Date().toISOString() });
+
+    try {
+        await persistExpenses();
+    } catch (error) {
+        Object.assign(found, previous);
+        sendJson(response, 500, { error: 'The expense could not be updated. Please try again.' });
+        return;
+    }
+
+    sendJson(response, 200, {
+        message: 'Expense updated.',
+        expense: summariseExpense(found)
+    });
+};
+
+const handleExpenseDelete = async (request, response) => {
+    const index = expenses.findIndex((expense) => expense.id === request.params.expenseId);
+
+    if (index === -1) {
+        sendJson(response, 404, { error: 'That expense could not be found.' });
+        return;
+    }
+
+    const [removed] = expenses.splice(index, 1);
+
+    try {
+        await persistExpenses();
+    } catch (error) {
+        expenses.splice(index, 0, removed);
+        sendJson(response, 500, { error: 'The expense could not be removed. Please try again.' });
+        return;
+    }
+
+    sendJson(response, 200, { message: 'Expense removed.' });
+};
+
 const handleTenantRegistration = async (request, response) => {
     if (!isSameOriginRequest(request)) {
         sendJson(response, 403, { error: 'Cross-origin registrations are not allowed.' });
@@ -2268,6 +3362,299 @@ const handlePropertyDetail = (request, response) => {
     }
 
     sendJson(response, 200, property);
+};
+
+const propertyStatuses = new Set(['Available', 'Occupied']);
+const propertySizes = new Set(['single-room', 'bedsitter', '1-bedroom', '2-bedroom', '3-bedroom', '4-bedroom']);
+const propertyTypeForSize = {
+    'single-room': 'Single room',
+    bedsitter: 'Bedsitter',
+    '1-bedroom': 'Apartment',
+    '2-bedroom': 'Apartment',
+    '3-bedroom': 'Apartment',
+    '4-bedroom': 'Family home'
+};
+const bedsForSize = {
+    'single-room': 1,
+    bedsitter: 1,
+    '1-bedroom': 1,
+    '2-bedroom': 2,
+    '3-bedroom': 3,
+    '4-bedroom': 4
+};
+const rentPriceFormatter = new Intl.NumberFormat('en-KE', { maximumFractionDigits: 0 });
+
+const formatPropertyPrice = (monthlyRent) => `KSh ${rentPriceFormatter.format(monthlyRent)}/month`;
+
+const slugifyPropertyName = (name) => String(name || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
+
+const uniquePropertyId = (name) => {
+    const base = slugifyPropertyName(name) || `property-${crypto.randomBytes(3).toString('hex')}`;
+
+    if (!properties.some((item) => item.id === base)) {
+        return base;
+    }
+
+    return `${base}-${crypto.randomBytes(3).toString('hex')}`;
+};
+
+const parseAmenityList = (value) => {
+    const raw = Array.isArray(value) ? value : String(value || '').split(/[,;\n]/);
+
+    return [...new Set(raw.map((item) => String(item || '').trim()).filter(Boolean))].slice(0, 12);
+};
+
+const buildPropertyFromPayload = (payload, existing = null) => {
+    const pick = (key, fallback = '') => (payload[key] === undefined ? fallback : String(payload[key] || '').trim());
+    const size = pick('size', existing?.size);
+    const type = pick('type', existing?.type || propertyTypeForSize[size] || 'Apartment');
+    const rentWasProvided = payload.monthlyRent !== undefined && String(payload.monthlyRent).trim() !== '';
+    const monthlyRent = rentWasProvided
+        ? Math.round(Number(payload.monthlyRent))
+        : Math.round(Number(existing?.monthlyRent) || 0);
+    const bedsWereProvided = payload.beds !== undefined && String(payload.beds).trim() !== '';
+    const bathsWereProvided = payload.baths !== undefined && String(payload.baths).trim() !== '';
+    const beds = bedsWereProvided ? Math.round(Number(payload.beds)) : Number(existing?.beds ?? bedsForSize[size] ?? 1);
+    const baths = bathsWereProvided ? Math.round(Number(payload.baths)) : Number(existing?.baths ?? 1);
+    const name = pick('name', existing?.name);
+    const location = pick('location', existing?.location);
+    const amenities = payload.amenities === undefined && existing
+        ? (Array.isArray(existing.amenities) ? existing.amenities : [])
+        : parseAmenityList(payload.amenities);
+
+    return {
+        name,
+        location,
+        status: pick('status', existing?.status || 'Available'),
+        type,
+        size,
+        monthlyRent,
+        price: Number.isFinite(monthlyRent) && monthlyRent >= 0 ? formatPropertyPrice(monthlyRent) : '',
+        beds,
+        baths,
+        parking: pick('parking', existing?.parking || 'Parking'),
+        description: pick('description', existing?.description),
+        owner: pick('owner', existing?.owner),
+        alt: pick('alt', existing?.alt) || (name && location ? `${name} in ${location}` : name),
+        availability: pick('availability', existing?.availability || (pick('status', existing?.status || 'Available') === 'Occupied' ? 'Occupied' : 'Available now')),
+        amenities
+    };
+};
+
+const describePropertyProblem = (candidate) => {
+    if (candidate.name.length < 2 || candidate.name.length > 120) {
+        return 'Enter a property name between 2 and 120 characters.';
+    }
+
+    if (candidate.location.length < 2 || candidate.location.length > 120) {
+        return 'Enter the property location.';
+    }
+
+    if (!propertySizes.has(candidate.size)) {
+        return 'Choose a home type from single room through to 4 bedroom.';
+    }
+
+    if (candidate.type.length < 2 || candidate.type.length > 40) {
+        return 'Enter a short property type, such as Apartment or Family home.';
+    }
+
+    if (!propertyStatuses.has(candidate.status)) {
+        return 'Choose whether this property is available or occupied.';
+    }
+
+    if (!Number.isFinite(candidate.monthlyRent) || candidate.monthlyRent < 0 || candidate.monthlyRent > 10000000) {
+        return 'Enter a monthly rent in Kenya Shillings.';
+    }
+
+    if (!Number.isInteger(candidate.beds) || candidate.beds < 0 || candidate.beds > 20) {
+        return 'Enter how many bedrooms this home has.';
+    }
+
+    if (!Number.isInteger(candidate.baths) || candidate.baths < 0 || candidate.baths > 20) {
+        return 'Enter how many bathrooms this home has.';
+    }
+
+    if (candidate.parking.length > 40) {
+        return 'Keep the parking note under 40 characters.';
+    }
+
+    if (candidate.description.length > 800) {
+        return 'Keep the description under 800 characters.';
+    }
+
+    if (candidate.owner.length > 80) {
+        return 'Keep the owner or company name under 80 characters.';
+    }
+
+    if (candidate.availability.length > 60) {
+        return 'Keep the availability note under 60 characters.';
+    }
+
+    return null;
+};
+
+const findProperty = (propertyId) => properties.find((item) => item.id === propertyId) || null;
+
+const countTenantsOnProperty = (propertyId) => tenants.filter((tenant) => tenant.propertyId === propertyId).length;
+
+const syncPropertyDetailsToDependents = (property) => {
+    tenants.forEach((tenant) => {
+        if (tenant.propertyId === property.id) {
+            tenant.propertyName = property.name;
+            tenant.location = property.location;
+        }
+    });
+
+    payments.forEach((payment) => {
+        if (payment.propertyId === property.id) {
+            payment.propertyName = property.name;
+            payment.location = property.location;
+        }
+    });
+};
+
+const getPropertyImages = (property) => {
+    const images = Array.isArray(property?.images)
+        ? property.images.filter((image) => typeof image === 'string' && image)
+        : [];
+
+    if (images.length) {
+        return images;
+    }
+
+    return property?.image ? [property.image] : [];
+};
+
+const unlinkUploadedPropertyImage = async (image) => {
+    if (!String(image || '').startsWith('/uploads/properties/')) {
+        return;
+    }
+
+    const absolutePath = path.join(propertyImageDirectory, path.basename(image));
+
+    try {
+        await fs.promises.unlink(absolutePath);
+    } catch (error) {
+        if (error.code !== 'ENOENT') {
+            console.error(error);
+        }
+    }
+};
+
+const handlePropertyCreate = async (request, response) => {
+    if (!isSameOriginRequest(request)) {
+        sendJson(response, 403, { error: 'Cross-origin property changes are not allowed.' });
+        return;
+    }
+
+    const candidate = buildPropertyFromPayload(request.body);
+    const problem = describePropertyProblem(candidate);
+
+    if (problem) {
+        sendJson(response, 400, { error: problem });
+        return;
+    }
+
+    const now = new Date().toISOString();
+    const property = {
+        id: uniquePropertyId(candidate.name),
+        ...candidate,
+        image: '',
+        images: [],
+        createdAt: now,
+        updatedAt: now
+    };
+
+    properties.push(property);
+
+    try {
+        await persistProperties();
+    } catch (error) {
+        properties.pop();
+        sendJson(response, 500, { error: 'The property could not be saved. Please try again.' });
+        return;
+    }
+
+    sendJson(response, 201, { message: `${property.name} was added to your listings.`, property });
+};
+
+const handlePropertyUpdate = async (request, response) => {
+    if (!isSameOriginRequest(request)) {
+        sendJson(response, 403, { error: 'Cross-origin property changes are not allowed.' });
+        return;
+    }
+
+    const property = findProperty(request.params.propertyId);
+
+    if (!property) {
+        sendJson(response, 404, { error: 'Property not found.' });
+        return;
+    }
+
+    const candidate = buildPropertyFromPayload(request.body, property);
+    const problem = describePropertyProblem(candidate);
+
+    if (problem) {
+        sendJson(response, 400, { error: problem });
+        return;
+    }
+
+    const previous = { ...property };
+    Object.assign(property, candidate, { updatedAt: new Date().toISOString() });
+    syncPropertyDetailsToDependents(property);
+
+    try {
+        await persistProperties();
+        await persistTenants();
+        await persistPayments();
+    } catch (error) {
+        Object.assign(property, previous);
+        sendJson(response, 500, { error: 'The property could not be updated. Please try again.' });
+        return;
+    }
+
+    sendJson(response, 200, { message: `${property.name} was updated.`, property });
+};
+
+const handlePropertyDelete = async (request, response) => {
+    if (!isSameOriginRequest(request)) {
+        sendJson(response, 403, { error: 'Cross-origin property changes are not allowed.' });
+        return;
+    }
+
+    const index = properties.findIndex((item) => item.id === request.params.propertyId);
+
+    if (index === -1) {
+        sendJson(response, 404, { error: 'Property not found.' });
+        return;
+    }
+
+    const occupantCount = countTenantsOnProperty(request.params.propertyId);
+
+    if (occupantCount) {
+        sendJson(response, 409, {
+            error: `Move or remove ${occupantCount} tenant${occupantCount === 1 ? '' : 's'} from this property before deleting it.`
+        });
+        return;
+    }
+
+    const [removed] = properties.splice(index, 1);
+
+    try {
+        await persistProperties();
+    } catch (error) {
+        properties.splice(index, 0, removed);
+        sendJson(response, 500, { error: 'The property could not be removed. Please try again.' });
+        return;
+    }
+
+    await Promise.all(getPropertyImages(removed).map((image) => unlinkUploadedPropertyImage(image)));
+
+    sendJson(response, 200, { message: `${removed.name} was removed from your listings.` });
 };
 
 const handlePropertyImageUpload = async (request, response) => {
@@ -2454,6 +3841,7 @@ const api = express.Router();
 api.use(parseJsonBody, handleBodyError, requireJsonObject);
 
 api.post('/mpesa/callback', handleMpesaCallback);
+api.get('/mpesa/config', handleMpesaConfig);
 api.get('/health', (request, response) => {
     sendJson(response, 200, { status: 'ok' });
 });
@@ -2466,14 +3854,21 @@ api.post('/admin/password', handleAdminPasswordChange);
 
 api.get('/properties', handlePropertyList);
 api.get('/properties/recommend', handlePropertyRecommend);
+api.post('/properties', requireAdminSession, handlePropertyCreate);
 api.get('/properties/:propertyId', handlePropertyDetail);
+api.put('/properties/:propertyId', requireAdminSession, handlePropertyUpdate);
+api.patch('/properties/:propertyId', requireAdminSession, handlePropertyUpdate);
+api.delete('/properties/:propertyId', requireAdminSession, handlePropertyDelete);
 api.delete('/properties/:propertyId/images/:imageIndex', requireAdminSession, handlePropertyImageDelete);
 
 api.post('/payments', handlePaymentSubmission);
+api.post('/pochi-claim', handlePublicPochiClaim);
 api.get('/payments', handlePaymentList);
+api.get('/rent-bill', handleRentBill);
 api.get('/payment-requests', requireAdminSession, handlePaymentRequestList);
 api.post('/payment-requests/:requestId/confirm', requireAdminSession, handlePaymentRequestConfirmation);
 api.post('/payment-requests/:requestId/reject', requireAdminSession, handlePaymentRequestRejection);
+api.post('/payment-requests/:requestId/check', requireAdminSession, handlePaymentRequestCheck);
 api.get('/payment-requests/:requestId/status', handlePaymentRequestStatus);
 
 /* Tenant self-service namespace. Kept singular so it never collides with
@@ -2486,6 +3881,7 @@ api.put('/tenant/profile', requireTenantSession, handleTenantProfileUpdate);
 api.patch('/tenant/profile', requireTenantSession, handleTenantProfileUpdate);
 api.post('/tenant/password', requireTenantSession, handleTenantPasswordChange);
 api.post('/tenant/payments', requireTenantSession, handleTenantPaymentSubmission);
+api.post('/tenant/payments/pochi', requireTenantSession, handleTenantPochiClaim);
 api.get('/tenant/maintenance', requireTenantSession, handleTenantMaintenanceList);
 api.post('/tenant/maintenance', requireTenantSession, handleTenantMaintenanceCreate);
 api.post('/tenant/maintenance/:requestId/cancel', requireTenantSession, handleTenantMaintenanceCancel);
@@ -2497,6 +3893,13 @@ api.post('/maintenance', (request, response) => {
 });
 api.put('/maintenance/:requestId', requireAdminSession, handleMaintenanceUpdate);
 api.patch('/maintenance/:requestId', requireAdminSession, handleMaintenanceUpdate);
+
+/* Landlord expense ledger, which feeds the net income figures. */
+api.get('/expenses', requireAdminSession, handleExpenseList);
+api.post('/expenses', requireAdminSession, handleExpenseCreate);
+api.put('/expenses/:expenseId', requireAdminSession, handleExpenseUpdate);
+api.patch('/expenses/:expenseId', requireAdminSession, handleExpenseUpdate);
+api.delete('/expenses/:expenseId', requireAdminSession, handleExpenseDelete);
 
 api.post('/tenants/register', handleTenantRegistration);
 api.post('/tenants/import', requireAdminSession, handleTenantImport);
@@ -2635,6 +4038,7 @@ const startServer = async () => {
     payments.push(...data.payments.map(({ _id, ...record }) => record));
     tenants.push(...data.tenants.map(({ _id, ...record }) => record));
     maintenanceRequests.push(...data.maintenance.map(({ _id, ...record }) => record));
+    expenses.push(...data.expenses.map(({ _id, ...record }) => record));
     await reconcileInterruptedMpesaRequests();
     adminCredentials = createAdminCredentials(data.admin);
     await linkPaymentsToTenants();

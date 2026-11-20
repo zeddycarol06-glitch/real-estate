@@ -20,7 +20,8 @@ const models = {
     properties: createRecordModel('EstateProProperty', 'properties'),
     payments: createRecordModel('EstateProPayment', 'payments'),
     tenants: createRecordModel('EstateProTenant', 'tenants'),
-    maintenance: createRecordModel('EstateProMaintenance', 'maintenance')
+    maintenance: createRecordModel('EstateProMaintenance', 'maintenance'),
+    expenses: createRecordModel('EstateProExpense', 'expenses')
 };
 
 const settingsSchema = new mongoose.Schema({ _id: String }, {
