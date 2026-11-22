@@ -31,6 +31,7 @@
         pochiReferenceField: document.querySelector('#pochi-reference-field'),
         pochiReference: document.querySelector('#pochi-reference'),
         formIntro: document.querySelector('#payment-form-intro'),
+        stkSetupNote: document.querySelector('#stk-setup-note'),
         phoneHelp: document.querySelector('#payment-phone-help'),
         footerNote: document.querySelector('#payment-footer-note'),
         submit: document.querySelector('#submit-payment'),
@@ -107,7 +108,11 @@
         bill: null,
         billSequence: 0,
         billTimer: 0,
-        amountTouched: false
+        amountTouched: false,
+        methodTouched: false,
+        stkConfigured: null,
+        stkIssue: '',
+        businessShortCode: ''
     };
 
     const numberFormatter = new Intl.NumberFormat('en-KE', {
@@ -276,8 +281,8 @@
         renderPropertyOptions();
     };
 
-    /* The pay-to number is public configuration: it is the Pochi la Biashara
-       number rent is received on, shown to tenants before they pay. */
+    /* Public configuration: the Pochi number for manual payments, and whether
+       Daraja is ready to send a PIN prompt to the tenant's own phone. */
     const loadMpesaConfig = async () => {
         if (window.location.protocol === 'file:') {
             return;
@@ -300,19 +305,35 @@
                 setText(elements.paytoNumber, data.receivingNumber);
             }
 
-            /* Without Daraja there is no STK Push to send. Make the Pochi
-               route the default so bit-by-bit payments just work. */
-            if (data.stkConfigured === false && elements.method) {
-                const stkOption = elements.method.querySelector('option[value="M-Pesa STK Push"]');
+            state.stkConfigured = data.stkConfigured === true;
+            state.stkIssue = String(data.stkIssue || '');
+            state.businessShortCode = String(data.businessShortCode || '');
 
+            const stkOption = elements.method?.querySelector('option[value="M-Pesa STK Push"]');
+
+            if (state.stkConfigured) {
+                if (stkOption) {
+                    stkOption.disabled = false;
+                    stkOption.textContent = 'M-Pesa STK Push (prompt to my phone)';
+                }
+
+                /* Once Daraja is set up, the phone prompt is the default:
+                   submitting the form sends the prompt straight away. */
+                if (!state.methodTouched && elements.method) {
+                    elements.method.value = 'M-Pesa STK Push';
+                }
+            } else if (elements.method) {
                 if (stkOption) {
                     stkOption.disabled = true;
                     stkOption.textContent = 'M-Pesa STK Push (not configured)';
                 }
-
-                elements.method.value = 'Pochi la Biashara';
-                updateMethodFields();
+                if (!state.methodTouched) {
+                    elements.method.value = 'Pochi la Biashara';
+                }
             }
+
+            updateMethodFields();
+            updateStkSetupNote();
         } catch (error) {
             /* The number already in the markup is the fallback. */
         }
@@ -372,7 +393,7 @@
 
         setText(elements.formIntro, pochi
             ? 'Enter the Safaricom number you sent the money from, the amount, and the M-Pesa confirmation code. Your landlord will verify the code before the rent is recorded.'
-            : 'Enter the Safaricom number that should receive the STK Push prompt. The amount is sent to the configured Safaricom business shortcode.');
+            : 'Enter the Safaricom number that should receive the prompt, the amount and the rent period. We send an STK Push to that phone; enter your M-Pesa PIN there to confirm.');
         setText(elements.phoneHelp, pochi
             ? 'Enter the Safaricom number you sent the money from.'
             : 'Enter the Safaricom number that should receive the STK Push.');
@@ -384,6 +405,29 @@
         }
 
         setSubmitBusy(false);
+    };
+
+    /* Explains which payment route is live. The server sends only the exact
+       setup message (variable names, never values), so this is safe to show. */
+    const updateStkSetupNote = () => {
+        if (!elements.stkSetupNote) {
+            return;
+        }
+
+        elements.stkSetupNote.hidden = false;
+
+        if (state.stkConfigured) {
+            elements.stkSetupNote.classList.add('ready');
+            setText(elements.stkSetupNote, state.businessShortCode
+                ? `STK Push is active (shortcode ${state.businessShortCode}). After you submit, a prompt appears on the M-Pesa number you entered — just enter your PIN to confirm.`
+                : 'STK Push is active. After you submit, a prompt appears on the M-Pesa number you entered — just enter your PIN to confirm.');
+            return;
+        }
+
+        elements.stkSetupNote.classList.remove('ready');
+        setText(elements.stkSetupNote, state.stkIssue
+            ? `Phone prompt (STK Push) is not available yet: ${state.stkIssue} Until it is set up, use Pochi la Biashara below.`
+            : 'Phone prompt (STK Push) is not available yet. Until it is set up, use Pochi la Biashara below.');
     };
 
     const resetBill = (message) => {
@@ -913,6 +957,8 @@
             elements.pochiShell.hidden = true;
         }
         elements.formShell.hidden = false;
+        state.methodTouched = false;
+        elements.method.value = state.stkConfigured ? 'M-Pesa STK Push' : 'Pochi la Biashara';
         updateMethodFields();
         if (elements.pendingReceiptActions) {
             elements.pendingReceiptActions.hidden = true;
@@ -975,6 +1021,7 @@
     });
 
     elements.method?.addEventListener('change', () => {
+        state.methodTouched = true;
         clearMessages();
         updateMethodFields();
     });

@@ -1464,20 +1464,24 @@ const readCallbackMetadata = (callback) => new Map(
 const handleMpesaConfig = (request, response) => {
     let businessShortCode = '';
     let stkConfigured = false;
+    let stkIssue = '';
 
     try {
         businessShortCode = getDarajaSettings().shortcode;
         stkConfigured = true;
     } catch (error) {
-        /* STK Push simply is not configured yet; the receiving number is still
-           returned so tenants can pay manually. */
+        /* STK Push simply is not configured yet. The exact setup message is
+           safe to show (it names variables, never values) and tells the
+           landlord what to fix to switch the phone prompt on. */
         stkConfigured = false;
+        stkIssue = error.message;
     }
 
     sendJson(response, 200, {
         receivingNumber: getMpesaReceivingNumber(),
         businessShortCode,
-        stkConfigured
+        stkConfigured,
+        stkIssue
     });
 };
 

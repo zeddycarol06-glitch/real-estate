@@ -4753,6 +4753,32 @@ tbody tr:hover {
     color: #4d7d3e;
 }
 
+/* Tells the payer whether the phone prompt is active, and the landlord what
+   is still missing when it is not. The text comes from the public config API. */
+.payment-setup-note {
+    margin: 0 0 18px;
+    padding: 11px 13px;
+    border: 1px solid #e7d7a9;
+    border-left: 4px solid #d8a531;
+    border-radius: 10px;
+    background: #fffaf0;
+    color: #6d5320;
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1.45;
+}
+
+.payment-setup-note.ready {
+    border-color: #cce4b6;
+    border-left-color: #69a94a;
+    background: #f0f8e9;
+    color: #3f6b34;
+}
+
+.payment-setup-note[hidden] {
+    display: none;
+}
+
 .payment-info-card {
     position: sticky;
     top: 24px;

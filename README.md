@@ -77,6 +77,30 @@ Copy `.env.example` to `.env` and fill in what you need. `.env` is git-ignored.
 M-Pesa (Daraja) is only needed for the STK Push payment flow. Everything else
 runs without it.
 
+### Enabling the phone prompt (STK Push)
+
+STK Push is the prompt that appears on the tenant's own M-Pesa phone and needs
+only their PIN. It cannot be sent from the browser: Safaricom requires the
+request to be signed by the server, so the credentials stay in `.env`.
+
+1. Get sandbox credentials from the Safaricom developer portal: **Consumer
+   Key**, **Consumer Secret**, **Passkey** and the sandbox shortcode `174379`.
+2. Add them to `.env` as `DARAJA_CONSUMER_KEY`, `DARAJA_CONSUMER_SECRET`,
+   `DARAJA_PASSKEY` and `DARAJA_SHORTCODE`.
+3. Safaricom must be able to reach your server over the public internet. Expose
+   port `3100` (or `3000`) with an HTTPS tunnel such as ngrok, then set
+   `DARAJA_CALLBACK_URL=https://<your-tunnel-host>/api/mpesa/callback`. The URL
+   must be public HTTPS and end with that exact path.
+4. Keep `DARAJA_CALLBACK_TOKEN` at 32+ characters, then restart the server.
+
+The pay-rent page detects this automatically: **M-Pesa STK Push** becomes the
+selected method, the confirmation-code field is hidden, and submitting the form
+sends the prompt immediately. The tenant enters their PIN on the phone, and the
+page polls Safaricom until the payment is confirmed, then offers the receipt.
+If any setting is missing, the page says exactly what to fix and keeps the
+manual Pochi route available. `MPESA_RECEIVING_NUMBER` is only the number shown
+for manual Pochi payments; STK Push always uses the Daraja shortcode.
+
 ## Pages
 
 | Page | Who it is for |

@@ -131,6 +131,8 @@
                     M-Pesa statement before the rent is recorded.
                 </p>
 
+                <p id="stk-setup-note" class="payment-setup-note" role="status" hidden></p>
+
                 <p id="payment-error" class="payment-message payment-error" role="alert" hidden></p>
                 <p id="payment-status" class="payment-message payment-status" role="status" aria-live="polite" hidden></p>
 
@@ -210,14 +212,14 @@
 
             <aside class="payment-info-card">
                 <span class="payment-info-icon" aria-hidden="true">✓</span>
-                <h2>Pay bit by bit with M-Pesa</h2>
+                <h2>Pay with M-Pesa</h2>
                 <ol>
-                    <li>Send any amount — the whole bill or just part of it — to the <strong>Pochi la Biashara</strong> number above.</li>
-                    <li>Enter the M-Pesa confirmation code from the message you receive, along with the amount and rent period.</li>
-                    <li>Your landlord verifies the code. Each verified part is recorded, and the bill shows what is still owing.</li>
+                    <li>Enter the M-Pesa number, the amount (the full bill or just part of it), and the rent period.</li>
+                    <li>When <strong>STK Push</strong> is available, a prompt goes straight to that phone — just enter your M-Pesa PIN to confirm.</li>
+                    <li>Otherwise send the amount to the <strong>Pochi la Biashara</strong> number above and enter the confirmation code for your landlord to verify.</li>
                 </ol>
                 <p class="payment-info-note">
-                    A code you submit is not a receipt until the landlord verifies it. Where STK Push is configured, you can instead request a prompt and approve it with your M-Pesa PIN.
+                    Each confirmed part is added to your bill. A payment is never marked paid until Safaricom confirms it or your landlord verifies the code.
                 </p>
             </aside>
         </section>
