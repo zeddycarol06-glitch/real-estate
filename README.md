@@ -101,6 +101,23 @@ If any setting is missing, the page says exactly what to fix and keeps the
 manual Pochi route available. `MPESA_RECEIVING_NUMBER` is only the number shown
 for manual Pochi payments; STK Push always uses the Daraja shortcode.
 
+#### Setup helpers
+
+Three scripts keep the credentials off the command line and verify the setup:
+
+```bash
+npm run mpesa:configure          # asks for Consumer Key + Secret, hidden as typed, saves to .env
+npm run mpesa:configure -- --callback https://<host>/api/mpesa/callback
+npm run mpesa:check              # shows which settings are present and tests Safaricom auth + callback reachability
+npm run mpesa:tunnel             # Cloudflare quick tunnel; keeps DARAJA_CALLBACK_URL in sync when the URL changes
+```
+
+`mpesa:configure` never prints or transmits the secret values. `mpesa:check`
+only prints whether each value is present, never the value itself. Restart
+EstatePro after changing `.env`. Quick-tunnel URLs change on restart, so run
+`npm run mpesa:tunnel` again and restart EstatePro when that happens; a named
+tunnel or your own host is better for a permanent installation.
+
 ## Pages
 
 | Page | Who it is for |

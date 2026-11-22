@@ -5,7 +5,10 @@
     "description": "EstatePro property management website with a small Node.js API.",
     "scripts": {
         "start": "node server.js",
-        "admin:password": "node set-admin-password.js"
+        "admin:password": "node set-admin-password.js",
+        "mpesa:configure": "node scripts/configure-daraja.js",
+        "mpesa:check": "node scripts/check-daraja.js",
+        "mpesa:tunnel": "node scripts/start-tunnel.js"
     },
     "dependencies": {
         "dotenv": "^18.0.5",
