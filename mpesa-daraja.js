@@ -1,6 +1,23 @@
+const fs = require('node:fs');
 const path = require('node:path');
 const dotenv = require('dotenv');
-dotenv.config({ path: path.join(__dirname, '.env'), quiet: true });
+
+const envPath = path.join(__dirname, '.env');
+dotenv.config({ path: envPath, quiet: true });
+
+/* Quick tunnels replace their public URL every time they reconnect. Re-read
+   .env when settings are requested so a new callback URL takes effect without
+   restarting the server. .env is the configuration source for this app. */
+const reloadEnvFile = () => {
+    try {
+        const fresh = dotenv.parse(fs.readFileSync(envPath));
+        for (const [key, value] of Object.entries(fresh)) {
+            process.env[key] = value;
+        }
+    } catch (error) {
+        /* Missing or unreadable .env: keep the values already loaded. */
+    }
+};
 
 const tokenCache = {
     value: '',
@@ -17,6 +34,8 @@ const getDarajaCallbackToken = () => {
 };
 
 const getDarajaSettings = () => {
+    reloadEnvFile();
+
     const environment = String(process.env.DARAJA_ENV || 'sandbox').trim().toLowerCase();
     if (!['sandbox', 'production'].includes(environment)) {
         throw new Error('DARAJA_ENV must be either sandbox or production.');
@@ -136,6 +155,8 @@ const normalizeKenyanPhone = (value) => {
 const DEFAULT_MPESA_RECEIVING_NUMBER = '0796488109';
 
 const getMpesaReceivingNumber = () => {
+    reloadEnvFile();
+
     const configured = String(process.env.MPESA_RECEIVING_NUMBER || '').trim();
     const normalized = normalizeKenyanPhone(configured || DEFAULT_MPESA_RECEIVING_NUMBER);
 

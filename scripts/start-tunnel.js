@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* Start a free Cloudflare quick tunnel to the local EstatePro server and keep
    DARAJA_CALLBACK_URL in .env in sync with the public URL. Quick-tunnel URLs
-   change on every restart, so this removes the manual copy/paste step.
+   change on every reconnect, so this removes the manual copy/paste step.
 
    Usage: npm run mpesa:tunnel
    Optional: set CLOUDFLARED_PATH if the binary is somewhere else. */
@@ -46,12 +46,10 @@ if (!binary) {
     process.exit(1);
 }
 
-console.log(`Starting tunnel to http://localhost:${port} ...`);
-const child = spawn(binary, ['tunnel', `--url=http://localhost:${port}`], {
-    stdio: ['ignore', 'pipe', 'pipe']
-});
-
+let child = null;
 let announced = '';
+let stopping = false;
+
 const readOutput = (chunk) => {
     const text = chunk.toString();
     process.stdout.write(text);
@@ -62,30 +60,46 @@ const readOutput = (chunk) => {
             const callback = setCallback(announced);
             console.log(`\nPublic URL: ${announced}`);
             console.log(`Callback saved to .env: ${callback}`);
-            console.log('Restart EstatePro on port 3100 so it loads the new URL.\n');
+            console.log('EstatePro reloads .env automatically on each payment check.\n');
         } catch (error) {
             console.error(`Could not update .env: ${error.message}`);
         }
     }
 };
 
-child.stdout.on('data', readOutput);
-child.stderr.on('data', readOutput);
+const startTunnel = () => {
+    console.log(`Starting tunnel to http://localhost:${port} ...`);
+    child = spawn(binary, ['tunnel', `--url=http://localhost:${port}`], {
+        stdio: ['ignore', 'pipe', 'pipe']
+    });
 
-child.on('error', (error) => {
-    console.error(`Could not start cloudflared: ${error.message}`);
-    process.exitCode = 1;
-});
+    child.stdout.on('data', readOutput);
+    child.stderr.on('data', readOutput);
 
-child.on('exit', (code) => {
-    console.log(`\nTunnel stopped (exit ${code}).`);
-    process.exitCode = process.exitCode || (code === 0 ? 0 : 1);
-});
+    child.on('error', (error) => {
+        console.error(`Could not start cloudflared: ${error.message}`);
+        stopping = true;
+        process.exitCode = 1;
+    });
+
+    child.on('exit', (code) => {
+        child = null;
+        if (stopping) {
+            return;
+        }
+        console.log(`\nTunnel exited (code ${code}). Restarting in 5 seconds...`);
+        setTimeout(startTunnel, 5000);
+    });
+};
 
 const shutdown = () => {
-    if (!child.killed) {
+    stopping = true;
+    if (child && !child.killed) {
         child.kill();
     }
 };
+
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
+
+startTunnel();
