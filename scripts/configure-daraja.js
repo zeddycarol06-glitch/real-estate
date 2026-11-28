@@ -142,7 +142,7 @@ const main = async () => {
     fs.renameSync(temporaryPath, envPath);
 
     console.log('\nCredentials saved to .env (values hidden).');
-    console.log('Restart EstatePro on port 3100, then run: npm run mpesa:check');
+    console.log('No restart needed. Verify with: npm run mpesa:check');
 };
 
 main().catch((error) => {

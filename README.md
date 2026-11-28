@@ -113,12 +113,12 @@ npm run mpesa:tunnel             # Cloudflare quick tunnel; keeps DARAJA_CALLBAC
 ```
 
 `mpesa:configure` never prints or transmits the secret values. `mpesa:check`
-only prints whether each value is present, never the value itself. Restart
-EstatePro once after adding credentials for the first time. After that the
-server re-reads `.env` on each config check, so a new quick-tunnel callback URL
-is picked up automatically. `mpesa:tunnel` restarts itself if Cloudflare drops
-the connection; keep it running while payments are being tested. A named tunnel
-or your own host is better for a permanent installation.
+only prints whether each value is present, never the value itself. The server
+re-reads `.env` when settings are needed, so credentials and a new quick-tunnel
+callback URL take effect without restarting EstatePro. `mpesa:tunnel` restarts
+itself if Cloudflare drops the connection; keep it running while payments are
+being tested. A named tunnel or your own host is better for a permanent
+installation.
 
 ## Pages
 

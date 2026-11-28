@@ -91,7 +91,7 @@ const main = async () => {
         console.log('  OK    Public callback host reaches this server with STK active');
     } catch (error) {
         console.log(`\nCallback host check failed: ${error.message}`);
-        console.log('Make sure the tunnel and EstatePro are running, then restart EstatePro after changing .env.');
+        console.log('Make sure the tunnel and EstatePro are running and .env has the current callback URL.');
         process.exitCode = 1;
         return;
     }
